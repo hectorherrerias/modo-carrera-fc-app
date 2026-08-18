@@ -3,12 +3,14 @@ import { useApp } from '../context/AppContext';
 import { Trophy, Calendar, Plus, Shield, ArrowRight, DollarSign, Activity, Award, Edit3, Landmark } from 'lucide-react';
 import { AddSeasonModal } from '../components/Modals/AddSeasonModal';
 import { EditClubModal } from '../components/Modals/EditClubModal';
+import { EditSeasonModal } from '../components/Modals/EditSeasonModal';
 import { ClubLogo } from '../components/ClubLogo';
 
 export const ClubHubView = ({ onSelectSeason, onBackToClubs }) => {
-  const { activeClub, clubSeasons, addSeason, updateClub, setActiveSeasonId } = useApp();
+  const { activeClub, clubSeasons, addSeason, updateSeason, deleteSeason, updateClub, setActiveSeasonId } = useApp();
   const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
+  const [editingSeason, setEditingSeason] = useState(null);
 
   if (!activeClub) return null;
 
@@ -134,9 +136,23 @@ export const ClubHubView = ({ onSelectSeason, onBackToClubs }) => {
                   </div>
                 </div>
 
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-950 border border-slate-800 text-amber-400">
-                  {season.tactics?.formation || "4-2-3-1"}
-                </span>
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingSeason(season);
+                    }}
+                    title="Editar temporada"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-slate-950 border border-slate-800 transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-950 border border-slate-800 text-amber-400">
+                    {season.tacticsOfensive?.formation || season.tactics?.formation || "4-2-3-1"}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-2 py-3 border-y border-slate-800/80 my-2 text-xs">
@@ -178,6 +194,15 @@ export const ClubHubView = ({ onSelectSeason, onBackToClubs }) => {
         onClose={() => setIsEditClubModalOpen(false)}
         club={activeClub}
         onSave={updateClub}
+      />
+
+      <EditSeasonModal
+        isOpen={!!editingSeason}
+        onClose={() => setEditingSeason(null)}
+        season={editingSeason}
+        onSave={updateSeason}
+        onDelete={deleteSeason}
+        canDelete={clubSeasons.length > 1}
       />
 
     </div>

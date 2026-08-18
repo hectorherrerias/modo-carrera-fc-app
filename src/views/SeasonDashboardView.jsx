@@ -9,13 +9,15 @@ import { YouthAcademyTab } from '../components/Tabs/YouthAcademyTab';
 import { PressConferenceTab } from '../components/Tabs/PressConferenceTab';
 import { PressNewsTab } from '../components/Tabs/PressNewsTab';
 import { EditClubModal } from '../components/Modals/EditClubModal';
+import { EditSeasonModal } from '../components/Modals/EditSeasonModal';
 import { ClubLogo } from '../components/ClubLogo';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 
 export const SeasonDashboardView = () => {
-  const { activeClub, activeSeason, updateClub, recordMatchResult, computedWinRate } = useApp();
+  const { activeClub, activeSeason, updateClub, updateSeason, deleteSeason, clubSeasons, recordMatchResult, computedWinRate } = useApp();
   const [activeTab, setActiveTab] = useState('tactics');
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
+  const [isEditSeasonModalOpen, setIsEditSeasonModalOpen] = useState(false);
 
   if (!activeClub || !activeSeason) {
     return (
@@ -67,10 +69,15 @@ export const SeasonDashboardView = () => {
                 <Edit3 className="w-3.5 h-3.5" />
               </button>
               <span className="text-slate-600 hidden sm:inline">•</span>
-              <span className="text-xs text-slate-400 flex items-center space-x-1">
+              <button
+                onClick={() => setIsEditSeasonModalOpen(true)}
+                title="Editar temporada activa (año, presupuesto, balance)"
+                className="text-xs text-slate-300 hover:text-cyan-400 flex items-center space-x-1.5 bg-slate-950/80 px-2.5 py-0.5 rounded-full border border-slate-800 hover:border-cyan-500/50 transition-all cursor-pointer"
+              >
                 <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Temp {activeSeason.year}</span>
-              </span>
+                <span className="font-bold">Temp {activeSeason.year}</span>
+                <Edit3 className="w-3 h-3 text-slate-400 hover:text-cyan-400" />
+              </button>
             </div>
 
             <h1 className="text-xl sm:text-3xl font-black text-white font-outfit mt-0.5 sm:mt-1">
@@ -225,6 +232,15 @@ export const SeasonDashboardView = () => {
         onClose={() => setIsEditClubModalOpen(false)}
         club={activeClub}
         onSave={updateClub}
+      />
+
+      <EditSeasonModal
+        isOpen={isEditSeasonModalOpen}
+        onClose={() => setIsEditSeasonModalOpen(false)}
+        season={activeSeason}
+        onSave={updateSeason}
+        onDelete={deleteSeason}
+        canDelete={clubSeasons.length > 1}
       />
 
     </div>

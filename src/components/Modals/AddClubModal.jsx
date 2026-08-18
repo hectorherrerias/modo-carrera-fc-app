@@ -7,6 +7,7 @@ export const AddClubModal = ({ isOpen, onClose, onAdd }) => {
   const [managerName, setManagerName] = useState('');
   const [stadium, setStadium] = useState('');
   const [budget, setBudget] = useState('15000000');
+  const [initialSeasonYear, setInitialSeasonYear] = useState('2024/25');
   const [logo, setLogo] = useState('⚽');
   const [color, setColor] = useState('#10B981');
 
@@ -31,12 +32,14 @@ export const AddClubModal = ({ isOpen, onClose, onAdd }) => {
       managerName,
       stadium: stadium || 'Estadio Municipal',
       budget,
+      initialSeasonYear: initialSeasonYear || '2024/25',
       logo,
       color
     });
     setName('');
     setManagerName('');
     setStadium('');
+    setInitialSeasonYear('2024/25');
     onClose();
   };
 
@@ -97,15 +100,29 @@ export const AddClubModal = ({ isOpen, onClose, onAdd }) => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Presupuesto Inicial (€)</label>
-            <input
-              type="number"
-              required
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-emerald-400"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Temporada Inicial</label>
+              <input
+                type="text"
+                required
+                placeholder="2024/25"
+                value={initialSeasonYear}
+                onChange={(e) => setInitialSeasonYear(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-cyan-400 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Presupuesto Inicial (€)</label>
+              <input
+                type="number"
+                required
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
           </div>
 
           {/* ESCUDO DE IMAGEN DESDE PC & EMOJIS */}

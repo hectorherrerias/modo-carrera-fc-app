@@ -1,32 +1,43 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, Check } from 'lucide-react';
+import { useApp } from '../../context/AppContext';
+import { validateGeminiApiKey } from '../../utils/geminiService';
+import { exportDataToJson } from '../../utils/cloudSyncService';
+import { 
+  UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, 
+  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2 
+} from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose }) => {
   const { currentUser, loginUser, registerUser, logoutUser, updateGeminiApiKey } = useAuth();
+  const { data, setData, syncStatus, lastSyncedAt, forceSyncCloud } = useApp();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [geminiKeyInput, setGeminiKeyInput] = useState(currentUser?.geminiApiKey || '');
+  const [isValidatingKey, setIsValidatingKey] = useState(false);
+  const [keyValidationResult, setKeyValidationResult] = useState(null);
 
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
     try {
       if (isSignUp) {
-        registerUser(name, email, password);
+        await registerUser(name, email, password);
         setSuccessMsg("¡Cuenta creada e iniciada con éxito!");
       } else {
-        loginUser(email, password);
+        await loginUser(email, password);
         setSuccessMsg("¡Sesión iniciada con éxito!");
       }
     } catch (err) {
@@ -34,21 +45,77 @@ export const AuthModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSaveGeminiKey = (e) => {
+  const handleSaveAndValidateGeminiKey = async (e) => {
     e.preventDefault();
-    updateGeminiApiKey(geminiKeyInput);
-    setSuccessMsg("¡API Key de Google Gemini guardada en tu cuenta!");
+    setErrorMsg('');
+    setSuccessMsg('');
+    setKeyValidationResult(null);
+
+    if (!geminiKeyInput.trim()) {
+      updateGeminiApiKey('');
+      setSuccessMsg("API Key eliminada.");
+      return;
+    }
+
+    setIsValidatingKey(true);
+    const valResult = await validateGeminiApiKey(geminiKeyInput);
+    setIsValidatingKey(false);
+    setKeyValidationResult(valResult);
+
+    if (valResult.valid) {
+      updateGeminiApiKey(geminiKeyInput);
+      setSuccessMsg("¡API Key validada y guardada permanentemente en tu cuenta de la nube!");
+    } else {
+      setErrorMsg(valResult.message);
+    }
+  };
+
+  const handleForceSync = async () => {
+    setIsManualSyncing(true);
+    const ok = await forceSyncCloud();
+    setIsManualSyncing(false);
+    if (ok) {
+      setSuccessMsg("¡Datos sincronizados con éxito en la nube!");
+    } else {
+      setErrorMsg("No se pudo sincronizar en este momento. Revisa tu conexión.");
+    }
+  };
+
+  const handleExportBackup = () => {
+    exportDataToJson(data, `modo_carrera_backup_${new Date().toISOString().slice(0,10)}.json`);
+  };
+
+  const handleImportBackup = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        if (imported.clubs && imported.seasons) {
+          setData(imported);
+          forceSyncCloud();
+          setSuccessMsg("¡Copia de seguridad restaurada y sincronizada!");
+        } else {
+          setErrorMsg("El archivo JSON no tiene la estructura de Modo Carrera.");
+        }
+      } catch (err) {
+        setErrorMsg("Error al leer el archivo JSON.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
           <div className="flex items-center space-x-2">
             <UserCheck className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-bold text-base text-white">Cuenta de Usuario & Gemini AI</h3>
+            <h3 className="font-extrabold text-base text-white">Perfil, Nube & Google Gemini IA</h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X className="w-5 h-5" />
@@ -57,32 +124,79 @@ export const AuthModal = ({ isOpen, onClose }) => {
 
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
           
+          {/* Notifications */}
+          {errorMsg && (
+            <div className="p-3.5 bg-rose-950/80 border border-rose-500/50 rounded-2xl text-rose-200 text-xs font-semibold flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-3.5 bg-emerald-950/80 border border-emerald-500/50 rounded-2xl text-emerald-200 text-xs font-semibold flex items-center space-x-2">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
           {/* Currently Logged In Section */}
           {currentUser ? (
-            <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950 border border-emerald-500/30 px-2 py-0.5 rounded">
-                    Sesión Activa
-                  </span>
-                  <h4 className="text-lg font-black text-white mt-1">{currentUser.name}</h4>
-                  <p className="text-xs text-slate-400">{currentUser.email}</p>
+            <div className="space-y-5">
+              
+              {/* Account Info Box */}
+              <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-black text-emerald-400 bg-emerald-950 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      Sesión Activa
+                    </span>
+                    <h4 className="text-lg font-black text-white mt-1">{currentUser.name}</h4>
+                    <p className="text-xs text-slate-400 font-medium">{currentUser.email}</p>
+                  </div>
+
+                  <button
+                    onClick={logoutUser}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Cerrar Sesión
+                  </button>
                 </div>
 
-                <button
-                  onClick={logoutUser}
-                  className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
-                >
-                  Cerrar Sesión
-                </button>
+                {/* Cloud Sync Status Bar */}
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-2">
+                    <Cloud className={`w-4 h-4 ${syncStatus === 'synced' ? 'text-emerald-400' : (syncStatus === 'syncing' ? 'text-amber-400 animate-spin' : 'text-slate-500')}`} />
+                    <div>
+                      <span className="font-bold text-slate-300">
+                        {syncStatus === 'synced' && "Sincronizado en la Nube"}
+                        {syncStatus === 'syncing' && "Sincronizando con tu cuenta..."}
+                        {syncStatus === 'offline' && "Guardado Localmente"}
+                        {syncStatus === 'error' && "Error de Conexión"}
+                      </span>
+                      <p className="text-[10px] text-slate-500">
+                        Última sync: {new Date(lastSyncedAt).toLocaleTimeString('es-ES')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleForceSync}
+                    disabled={isManualSyncing}
+                    className="flex items-center space-x-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin text-emerald-400' : ''}`} />
+                    <span>Sincronizar Ahora</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Gemini API Key Config */}
-              <div className="pt-3 border-t border-slate-800 space-y-2">
+              {/* Gemini API Key Config & Permanent Cloud Storage */}
+              <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-400 flex items-center space-x-1">
-                    <Key className="w-3.5 h-3.5" />
-                    <span>Google Gemini AI Key</span>
+                  <span className="text-xs font-bold text-amber-400 flex items-center space-x-1.5">
+                    <Key className="w-4 h-4 text-amber-400" />
+                    <span>Google Gemini API Key (Permanente)</span>
                   </span>
                   <a
                     href="https://aistudio.google.com/app/apikey"
@@ -90,29 +204,74 @@ export const AuthModal = ({ isOpen, onClose }) => {
                     rel="noreferrer"
                     className="text-[10px] text-cyan-400 hover:underline font-semibold"
                   >
-                    Obtener Key Gratis ↗
+                    Obtener Key Gratis de Google ↗
                   </a>
                 </div>
 
-                <form onSubmit={handleSaveGeminiKey} className="flex space-x-2">
-                  <input
-                    type="password"
-                    placeholder="AIzaSy..."
-                    value={geminiKeyInput}
-                    onChange={(e) => setGeminiKeyInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white"
-                  />
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold rounded-xl shadow"
-                  >
-                    Guardar
-                  </button>
-                </form>
-                <p className="text-[10px] text-slate-400">
-                  {currentUser.geminiApiKey ? '✓ Tu cuenta de Google Gemini está conectada.' : 'Conecta tu API Key de Gemini para activar tus solicitudes por voz e IA directa.'}
+                <p className="text-xs text-slate-400">
+                  Introduce tu clave de Google Gemini <strong>una sola vez</strong>. Se guardará para siempre vinculada a tu cuenta de Gmail y estará disponible en cualquier dispositivo desde el que entres.
                 </p>
+
+                <form onSubmit={handleSaveAndValidateGeminiKey} className="space-y-2">
+                  <div className="flex space-x-2">
+                    <input
+                      type="password"
+                      placeholder="AIzaSy..."
+                      value={geminiKeyInput}
+                      onChange={(e) => setGeminiKeyInput(e.target.value)}
+                      className="flex-1 px-3.5 py-2.5 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-white"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isValidatingKey}
+                      className="px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-black rounded-xl shadow-md transition-all flex items-center space-x-1 disabled:opacity-50"
+                    >
+                      {isValidatingKey ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Validando...</span>
+                        </>
+                      ) : (
+                        <span>Validar y Guardar</span>
+                      )}
+                    </button>
+                  </div>
+
+                  {keyValidationResult && keyValidationResult.valid && (
+                    <p className="text-[11px] text-emerald-400 font-semibold flex items-center space-x-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>{keyValidationResult.message}</span>
+                    </p>
+                  )}
+                </form>
               </div>
+
+              {/* Data Backup & Restore */}
+              <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <span className="text-xs font-bold text-slate-400 block">Copia de Seguridad y Archivo Local</span>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportBackup}
+                    className="flex items-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Descargar Backup JSON</span>
+                  </button>
+
+                  <label className="flex items-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all cursor-pointer">
+                    <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Restaurar desde JSON</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportBackup}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
             </div>
           ) : (
             /* Login / Sign-Up Form */
@@ -121,8 +280,8 @@ export const AuthModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => { setIsSignUp(false); setErrorMsg(''); setSuccessMsg(''); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    !isSignUp ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    !isSignUp ? 'bg-emerald-500 text-slate-950 shadow-md font-black' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Iniciar Sesión
@@ -130,26 +289,13 @@ export const AuthModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => { setIsSignUp(true); setErrorMsg(''); setSuccessMsg(''); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    isSignUp ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isSignUp ? 'bg-emerald-500 text-slate-950 shadow-md font-black' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   Crear Cuenta
                 </button>
               </div>
-
-              {errorMsg && (
-                <div className="p-3 bg-rose-950/80 border border-rose-500/50 rounded-xl text-rose-200 text-xs font-semibold">
-                  {errorMsg}
-                </div>
-              )}
-
-              {successMsg && (
-                <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-emerald-200 text-xs font-semibold flex items-center space-x-2">
-                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>{successMsg}</span>
-                </div>
-              )}
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 {isSignUp && (
@@ -161,20 +307,20 @@ export const AuthModal = ({ isOpen, onClose }) => {
                       placeholder="Tu Nombre"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
+                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Correo Electrónico</label>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Correo Electrónico (Gmail / Otro)</label>
                   <input
                     type="email"
                     required
-                    placeholder="ejemplo@correo.com"
+                    placeholder="ejemplo@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
                   />
                 </div>
 
@@ -186,15 +332,15 @@ export const AuthModal = ({ isOpen, onClose }) => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all mt-2"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all mt-2"
                 >
-                  {isSignUp ? 'Registrar Mi Cuenta' : 'Acceder al Juego'}
+                  {isSignUp ? 'Registrar Mi Cuenta en la Nube' : 'Acceder al Juego'}
                 </button>
               </form>
             </div>

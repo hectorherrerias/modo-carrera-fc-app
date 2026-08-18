@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Shield, Calendar, RefreshCw, ArrowLeft, Palette, User, Key } from 'lucide-react';
+import { Trophy, Shield, Calendar, RefreshCw, ArrowLeft, Palette, User, Key, Cloud, Sparkles } from 'lucide-react';
 import { ClubLogo } from './ClubLogo';
 import { AuthModal } from './Modals/AuthModal';
 
 export const Navbar = ({ currentView, setView }) => {
-  const { activeClub, activeSeason, resetToDefaultData } = useApp();
+  const { activeClub, activeSeason, resetToDefaultData, syncStatus, forceSyncCloud } = useApp();
   const { currentTheme, changeTheme, themes } = useTheme();
   const { currentUser } = useAuth();
 
@@ -86,9 +86,32 @@ export const Navbar = ({ currentView, setView }) => {
           )}
         </div>
 
-        {/* Right Actions: Theme Selector, User Auth Profile & Controls */}
+        {/* Right Actions: Cloud Sync Status, Theme, User Auth Profile & Controls */}
         <div className="flex items-center space-x-2">
           
+          {/* Cloud Sync Status Indicator */}
+          {currentUser && (
+            <button
+              onClick={() => forceSyncCloud()}
+              title={`Sincronización en la nube activa con ${currentUser.email}. Pulsa para forzar sincronización.`}
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                syncStatus === 'synced' 
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400 hover:bg-emerald-950/80' 
+                  : (syncStatus === 'syncing' 
+                      ? 'bg-amber-950/40 border-amber-500/40 text-amber-400' 
+                      : 'bg-slate-950 border-slate-800 text-slate-400')
+              }`}
+            >
+              <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-spin text-amber-400' : ''}`} />
+              <span className="hidden xl:inline text-[11px]">
+                {syncStatus === 'synced' && 'Nube'}
+                {syncStatus === 'syncing' && 'Guardando...'}
+                {syncStatus === 'offline' && 'Local'}
+                {syncStatus === 'error' && 'Sin red'}
+              </span>
+            </button>
+          )}
+
           {/* Theme Selector Dropdown */}
           <div className="relative">
             <button
@@ -129,7 +152,11 @@ export const Navbar = ({ currentView, setView }) => {
           >
             <User className="w-3.5 h-3.5" />
             <span className="max-w-[90px] truncate">{currentUser ? currentUser.name.split(' ')[0] : 'Cuenta'}</span>
-            {currentUser?.geminiApiKey && <Key className="w-3 h-3 text-amber-400" />}
+            {currentUser?.geminiApiKey && (
+              <span title="Gemini AI Conectada">
+                <Key className="w-3 h-3 text-amber-400 fill-amber-400" />
+              </span>
+            )}
           </button>
 
           {currentView !== 'home' && (

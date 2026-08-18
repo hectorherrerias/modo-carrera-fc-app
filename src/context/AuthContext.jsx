@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
 
 const AuthContext = createContext();
 
-const USERS_STORAGE_KEY = 'career_tracker_users_v16';
-const CURRENT_USER_KEY = 'career_tracker_current_user_v16';
+const USERS_STORAGE_KEY = 'career_tracker_users_v17';
+const CURRENT_USER_KEY = 'career_tracker_current_user_v17';
 
 export const AuthProvider = ({ children }) => {
   const [users, setUsers] = useState(() => {
@@ -19,8 +20,10 @@ export const AuthProvider = ({ children }) => {
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return null; // Force login on fresh start
+    return null;
   });
+
+  const [isCloudLoading, setIsCloudLoading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
@@ -34,28 +37,49 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Google / Gmail OAuth Handler
-  const loginWithGoogle = (googleEmail = '', googleName = '') => {
+  // Google / Gmail OAuth Handler with Cloud Persistence
+  const loginWithGoogle = async (googleEmail = '', googleName = '') => {
     const email = (googleEmail || 'usuario.google@gmail.com').trim().toLowerCase();
     const name = googleName || email.split('@')[0];
 
-    let user = users.find(u => u.email.toLowerCase() === email);
-    if (!user) {
-      user = {
-        id: 'user_google_' + Date.now(),
-        name: name,
-        email: email,
-        isGoogle: true,
-        geminiApiKey: ''
-      };
-      setUsers(prev => [...prev, user]);
+    setIsCloudLoading(true);
+
+    // 1. Try to fetch user from cloud first
+    let cloudUser = null;
+    try {
+      const cloudResult = await fetchUserCloudData(email);
+      if (cloudResult && cloudResult.userProfile) {
+        cloudUser = cloudResult.userProfile;
+      }
+    } catch (e) {
+      console.warn("Cloud lookup failed on Google login:", e);
     }
 
-    setCurrentUser(user);
-    return user;
+    let localUser = users.find(u => u.email.toLowerCase() === email);
+
+    let finalUser = {
+      id: cloudUser?.id || localUser?.id || ('user_google_' + Date.now()),
+      name: cloudUser?.name || localUser?.name || name,
+      email: email,
+      isGoogle: true,
+      geminiApiKey: cloudUser?.geminiApiKey || localUser?.geminiApiKey || ''
+    };
+
+    setUsers(prev => {
+      const filtered = prev.filter(u => u.email.toLowerCase() !== email);
+      return [...filtered, finalUser];
+    });
+
+    setCurrentUser(finalUser);
+
+    // Save/Sync to Cloud in background
+    saveUserCloudData(email, { userProfile: finalUser }).catch(err => console.warn(err));
+
+    setIsCloudLoading(false);
+    return finalUser;
   };
 
-  const registerUser = (name, email, password) => {
+  const registerUser = async (name, email, password) => {
     const cleanEmail = email.trim().toLowerCase();
     const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
     if (existing) {
@@ -67,21 +91,41 @@ export const AuthProvider = ({ children }) => {
       name: name.trim(),
       email: cleanEmail,
       password,
-      isGoogle: false,
+      isGoogle: cleanEmail.includes('@gmail.com'),
       geminiApiKey: ''
     };
 
     setUsers(prev => [...prev, newUser]);
     setCurrentUser(newUser);
+
+    // Sync to Cloud
+    saveUserCloudData(cleanEmail, { userProfile: newUser }).catch(err => console.warn(err));
+
     return newUser;
   };
 
-  const loginUser = (email, password) => {
+  const loginUser = async (email, password) => {
     const cleanEmail = email.trim().toLowerCase();
-    const user = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === password);
+    let user = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === password);
+    
+    // If not found locally, check cloud
+    if (!user) {
+      try {
+        const cloudResult = await fetchUserCloudData(cleanEmail);
+        if (cloudResult && cloudResult.userProfile) {
+          user = {
+            ...cloudResult.userProfile,
+            password: password
+          };
+          setUsers(prev => [...prev, user]);
+        }
+      } catch (e) {}
+    }
+
     if (!user) {
       throw new Error("Correo o contraseña incorrectos.");
     }
+
     setCurrentUser(user);
     return user;
   };
@@ -92,16 +136,23 @@ export const AuthProvider = ({ children }) => {
 
   const updateGeminiApiKey = (apiKey) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, geminiApiKey: apiKey.trim() };
+    const cleanKey = apiKey.trim();
+    const updated = { ...currentUser, geminiApiKey: cleanKey };
     setCurrentUser(updated);
 
-    setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, geminiApiKey: apiKey.trim() } : u));
+    setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, geminiApiKey: cleanKey } : u));
+
+    // Save permanently to Cloud
+    saveUserCloudData(currentUser.email, { userProfile: updated }).catch(err => {
+      console.warn("Could not save Gemini Key to cloud:", err);
+    });
   };
 
   return (
     <AuthContext.Provider value={{
       currentUser,
       users,
+      isCloudLoading,
       loginWithGoogle,
       registerUser,
       loginUser,

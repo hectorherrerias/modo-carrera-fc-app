@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key } from 'lucide-react';
+import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe } from 'lucide-react';
 
 export const AuthGateView = () => {
-  const { loginWithGoogle, loginUser, registerUser } = useAuth();
+  const { loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [isGoogleCustomModal, setIsGoogleCustomModal] = useState(false);
@@ -14,30 +14,39 @@ export const AuthGateView = () => {
   const [password, setPassword] = useState('');
 
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleGoogleClick = () => {
     setIsGoogleCustomModal(true);
   };
 
-  const handleGoogleSubmit = (e) => {
+  const handleGoogleSubmit = async (e) => {
     e.preventDefault();
     if (!googleEmailInput.trim()) return;
-    loginWithGoogle(googleEmailInput);
+    setIsSubmitting(true);
+    try {
+      await loginWithGoogle(googleEmailInput);
+    } catch (err) {
+      setErrorMsg(err.message || "Error al iniciar con Gmail.");
+    }
+    setIsSubmitting(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setIsSubmitting(true);
 
     try {
       if (isSignUp) {
-        registerUser(name, email, password);
+        await registerUser(name, email, password);
       } else {
-        loginUser(email, password);
+        await loginUser(email, password);
       }
     } catch (err) {
       setErrorMsg(err.message || "Error al autenticar.");
     }
+    setIsSubmitting(false);
   };
 
   return (
@@ -63,9 +72,9 @@ export const AuthGateView = () => {
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs text-slate-400 font-semibold">
-          <Lock className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Acceso Privado por Usuario</span>
+        <div className="flex items-center space-x-2 text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-full border border-emerald-500/30">
+          <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Sincronización en la Nube Multi-Dispositivo</span>
         </div>
       </header>
 
@@ -76,35 +85,35 @@ export const AuthGateView = () => {
         <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Gestor Profesional e Inteligencia Artificial</span>
+            <span>Gestor Profesional Multi-Dispositivo & Google Gemini IA</span>
           </div>
 
           <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tight font-outfit leading-tight">
             Tu Modo Carrera <br />
             <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Con Tu Cuenta de Gmail y Gemini IA
+              Sincronizado en Todos tus Dispositivos
             </span>
           </h2>
 
           <p className="text-slate-400 text-base sm:text-lg max-w-2xl leading-relaxed">
-            Inicia sesión con tu cuenta de Google / Gmail para acceder a tu panel de control privado. Cada usuario conecta su propia cuenta de Gemini IA (100% gratuita) de forma completamente independiente y aislada.
+            Inicia sesión con tu cuenta de Google / Gmail desde tu ordenador, móvil o tablet. Tus clubes, tácticas, plantilla, contexto de temporada y tu API Key de Gemini se sincronizan automáticamente para que juegues donde quieras sin perder nada.
           </p>
 
           {/* Value Props */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 text-left max-w-xl">
             <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+              <Globe className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-white">Datos Privados por Gmail</h4>
-                <p className="text-xs text-slate-400">Tus partidas y tácticas solo son visibles desde tu cuenta.</p>
+                <h4 className="font-bold text-sm text-white">Multi-Dispositivo con Gmail</h4>
+                <p className="text-xs text-slate-400">Accede desde cualquier dispositivo con tu correo y tus datos estarán listos.</p>
               </div>
             </div>
 
             <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
               <Bot className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-white">Tu Propia Gemini IA</h4>
-                <p className="text-xs text-slate-400">Cada usuario utiliza su propia cuota gratuita de Gemini.</p>
+                <h4 className="font-bold text-sm text-white">Gemini IA Permanente</h4>
+                <p className="text-xs text-slate-400">Guarda tu API Key una sola vez y se recordará para siempre en tu cuenta.</p>
               </div>
             </div>
           </div>
@@ -119,7 +128,7 @@ export const AuthGateView = () => {
                 {isSignUp ? 'Crear Tu Cuenta' : 'Acceder al Juego'}
               </h3>
               <p className="text-xs text-slate-400">
-                Selecciona cómo deseas autenticarte
+                Selecciona cómo deseas identificarte
               </p>
             </div>
 
@@ -215,7 +224,8 @@ export const AuthGateView = () => {
 
               <button
                 type="submit"
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 mt-2"
+                disabled={isSubmitting}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 mt-2 disabled:opacity-50"
               >
                 <span>{isSignUp ? 'Crear Cuenta e Ingresar' : 'Entrar a Mis Clubes'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -237,7 +247,7 @@ export const AuthGateView = () => {
             </div>
 
             <p className="text-xs text-slate-400">
-              Introduce tu correo de Gmail para identificarte y cargar tu perfil de mánager independiente:
+              Introduce tu correo de Gmail. Se conectará a la nube para cargar tus clubes, tu contexto de temporada y tu clave de Gemini en este dispositivo:
             </p>
 
             <form onSubmit={handleGoogleSubmit} className="space-y-4">
@@ -249,15 +259,16 @@ export const AuthGateView = () => {
                   placeholder="ejemplo@gmail.com"
                   value={googleEmailInput}
                   onChange={(e) => setGoogleEmailInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm"
+                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs rounded-xl shadow transition-all"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow transition-all disabled:opacity-50"
               >
-                Continuar con Gmail
+                {isSubmitting ? 'Cargando datos de la nube...' : 'Continuar con Gmail'}
               </button>
             </form>
           </div>
@@ -266,7 +277,7 @@ export const AuthGateView = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 z-10">
-        <p>© {new Date().getFullYear()} Career Mode Tracker • Plataforma Privada de Gestión EA FC</p>
+        <p>© {new Date().getFullYear()} Career Mode Tracker • Sincronización en la Nube y Asistente Gemini IA</p>
       </footer>
 
     </div>

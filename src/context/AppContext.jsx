@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { INITIAL_DATA } from '../mockData';
+import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
 
 const AppContext = createContext();
+
+const DEFAULT_SEASON_NARRATIVE = "Llegamos con la máxima ilusión. El objetivo es competir en cada jornada, consolidar la solidez táctica del equipo y cumplir las expectativas de la directiva y de la afición.";
 
 export const AppProvider = ({ children }) => {
   const { currentUser } = useAuth();
@@ -11,11 +14,24 @@ export const AppProvider = ({ children }) => {
     ? `career_tracker_data_${currentUser.id}` 
     : 'career_tracker_data_guest';
 
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'offline' | 'error'
+  const [lastSyncedAt, setLastSyncedAt] = useState(Date.now());
+  const syncTimeoutRef = useRef(null);
+  const initialCloudLoadDoneRef = useRef(false);
+
   const [data, setData] = useState(() => {
     const saved = localStorage.getItem(userStorageKey);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Ensure seasons have narrativeContext
+        if (parsed.seasons) {
+          parsed.seasons = parsed.seasons.map(s => ({
+            ...s,
+            narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
+          }));
+        }
+        return parsed;
       } catch (e) {
         console.error("Error loading saved data:", e);
       }
@@ -26,78 +42,190 @@ export const AppProvider = ({ children }) => {
         ...c,
         managerName: currentUser ? currentUser.name : c.managerName
       })),
+      seasons: INITIAL_DATA.seasons.map(s => ({
+        ...s,
+        narrativeContext: DEFAULT_SEASON_NARRATIVE
+      })),
       pressConferences: [],
       newsArticles: []
     };
   });
 
-  // Re-load data whenever currentUser changes!
+  // Re-load data whenever currentUser changes: Check Cloud First!
   useEffect(() => {
-    const saved = localStorage.getItem(userStorageKey);
-    if (saved) {
+    if (!currentUser) {
+      initialCloudLoadDoneRef.current = false;
+      return;
+    }
+
+    let isMounted = true;
+    setSyncStatus('syncing');
+
+    const loadUserInitialData = async () => {
+      let loadedFromCloud = false;
+
+      // 1. Try Cloud fetch
       try {
-        setData(JSON.parse(saved));
-        return;
-      } catch (e) {}
-    }
-
-    // Default data for new user
-    setData({
-      ...INITIAL_DATA,
-      clubs: [
-        {
-          id: "c1_" + Date.now(),
-          name: "CD Leganés",
-          stadium: "Estadio Municipal de Butarque",
-          logo: "⚽",
-          color: "#0055A5",
-          managerName: currentUser ? currentUser.name : "Mánager",
-          globalWinRate: 50.0,
-          totalTrophies: 0
+        const cloudResult = await fetchUserCloudData(currentUser.email);
+        if (isMounted && cloudResult && cloudResult.careerData && cloudResult.careerData.clubs?.length > 0) {
+          const cloudData = cloudResult.careerData;
+          // Ensure seasons have narrativeContext
+          if (cloudData.seasons) {
+            cloudData.seasons = cloudData.seasons.map(s => ({
+              ...s,
+              narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
+            }));
+          }
+          setData(cloudData);
+          localStorage.setItem(userStorageKey, JSON.stringify(cloudData));
+          loadedFromCloud = true;
+          setSyncStatus('synced');
+          setLastSyncedAt(Date.now());
         }
-      ],
-      seasons: [
-        {
-          id: "s1_" + Date.now(),
-          clubId: "c1_" + Date.now(),
-          year: "2024/25",
-          budget: 15000000,
-          matchResults: { wins: 0, draws: 0, losses: 0 },
-          tacticsOfensive: {
-            formation: "4-2-3-1 (Estrecho)",
-            style: "Posesión",
-            width: 65,
-            depth: 70,
-            playersInBox: 6,
-            startingXI: []
-          },
-          tacticsDefensive: {
-            formation: "4-4-2 (Plano)",
-            style: "Presión tras Pérdida",
-            width: 45,
-            depth: 40,
-            startingXI: []
-          },
-          competitions: [
-            { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
-          ],
-          awards: { mvp: "Por determinar", topScorer: "Por determinar", topAssister: "Por determinar" }
-        }
-      ],
-      players: [],
-      transfers: [],
-      youthAcademy: [],
-      pressConferences: [],
-      newsArticles: []
-    });
-  }, [currentUser?.id]);
+      } catch (err) {
+        console.warn("Cloud initial load warning:", err);
+      }
 
-  // Save to LocalStorage strictly scoped by userStorageKey
+      // 2. If not from cloud, load from localStorage
+      if (!loadedFromCloud && isMounted) {
+        const saved = localStorage.getItem(userStorageKey);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed.seasons) {
+              parsed.seasons = parsed.seasons.map(s => ({
+                ...s,
+                narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
+              }));
+            }
+            setData(parsed);
+            setSyncStatus('synced');
+          } catch (e) {}
+        } else {
+          // New user default template
+          const newDefault = {
+            ...INITIAL_DATA,
+            clubs: [
+              {
+                id: "c1_" + Date.now(),
+                name: "CD Leganés",
+                stadium: "Estadio Municipal de Butarque",
+                logo: "⚽",
+                color: "#0055A5",
+                managerName: currentUser ? currentUser.name : "Mánager",
+                globalWinRate: 50.0,
+                totalTrophies: 0
+              }
+            ],
+            seasons: [
+              {
+                id: "s1_" + Date.now(),
+                clubId: "c1_" + Date.now(),
+                year: "2024/25",
+                budget: 15000000,
+                narrativeContext: DEFAULT_SEASON_NARRATIVE,
+                matchResults: { wins: 0, draws: 0, losses: 0 },
+                tacticsOfensive: {
+                  formation: "4-2-3-1 (Estrecho)",
+                  style: "Posesión",
+                  width: 65,
+                  depth: 70,
+                  playersInBox: 6,
+                  startingXI: []
+                },
+                tacticsDefensive: {
+                  formation: "4-4-2 (Plano)",
+                  style: "Presión tras Pérdida",
+                  width: 45,
+                  depth: 40,
+                  startingXI: []
+                },
+                competitions: [
+                  { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
+                ],
+                awards: { mvp: "Por determinar", topScorer: "Por determinar", topAssister: "Por determinar" }
+              }
+            ],
+            players: [],
+            transfers: [],
+            youthAcademy: [],
+            pressConferences: [],
+            newsArticles: []
+          };
+          setData(newDefault);
+          setSyncStatus('synced');
+        }
+      }
+
+      initialCloudLoadDoneRef.current = true;
+    };
+
+    loadUserInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.email]);
+
+  // Save to LocalStorage & Debounced Auto-Sync to Cloud
   useEffect(() => {
-    if (data && userStorageKey) {
-      localStorage.setItem(userStorageKey, JSON.stringify(data));
+    if (!data || !userStorageKey) return;
+
+    // Save immediately to localStorage
+    localStorage.setItem(userStorageKey, JSON.stringify(data));
+
+    // If logged in, debounce sync to Cloud
+    if (currentUser?.email && initialCloudLoadDoneRef.current) {
+      setSyncStatus('syncing');
+
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+
+      syncTimeoutRef.current = setTimeout(async () => {
+        try {
+          const success = await saveUserCloudData(currentUser.email, {
+            userProfile: currentUser,
+            careerData: data
+          });
+          if (success) {
+            setSyncStatus('synced');
+            setLastSyncedAt(Date.now());
+          } else {
+            setSyncStatus('offline');
+          }
+        } catch (e) {
+          console.warn("Auto-sync error:", e);
+          setSyncStatus('error');
+        }
+      }, 1500);
     }
-  }, [data, userStorageKey]);
+
+    return () => {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    };
+  }, [data, userStorageKey, currentUser]);
+
+  const forceSyncCloud = useCallback(async () => {
+    if (!currentUser?.email) return false;
+    setSyncStatus('syncing');
+    try {
+      const success = await saveUserCloudData(currentUser.email, {
+        userProfile: currentUser,
+        careerData: data
+      });
+      if (success) {
+        setSyncStatus('synced');
+        setLastSyncedAt(Date.now());
+        return true;
+      }
+      setSyncStatus('offline');
+      return false;
+    } catch (err) {
+      setSyncStatus('error');
+      return false;
+    }
+  }, [currentUser, data]);
 
   const [activeClubId, setActiveClubId] = useState(null);
   const [activeSeasonId, setActiveSeasonId] = useState(null);
@@ -150,6 +278,14 @@ export const AppProvider = ({ children }) => {
     : (activeClub?.globalWinRate || 50.0);
 
   // Actions
+  const updateSeasonNarrative = (narrativeText) => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => s.id === activeSeasonId ? { ...s, narrativeContext: narrativeText } : s)
+    }));
+  };
+
   const recordMatchResult = (resultType, delta = 1) => {
     if (!activeSeasonId) return;
     setData(prev => ({
@@ -197,8 +333,9 @@ export const AppProvider = ({ children }) => {
     const firstSeason = {
       id: seasonId,
       clubId: clubId,
-      year: "2024/25",
+      year: newClub.initialSeasonYear || "2024/25",
       budget: newClub.budget ? Number(newClub.budget) : 10000000,
+      narrativeContext: DEFAULT_SEASON_NARRATIVE,
       matchResults: { wins: 0, draws: 0, losses: 0 },
       tacticsOfensive: {
         formation: "4-2-3-1 (Estrecho)",
@@ -231,6 +368,43 @@ export const AppProvider = ({ children }) => {
     setActiveSeasonId(seasonId);
   };
 
+  const updateSeason = (seasonId, updatedFields) => {
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === seasonId) {
+          return {
+            ...s,
+            ...updatedFields,
+            budget: updatedFields.budget !== undefined ? Number(updatedFields.budget) : s.budget
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const deleteSeason = (seasonId) => {
+    setData(prev => {
+      const remainingSeasons = prev.seasons.filter(s => s.id !== seasonId);
+      const remainingPlayers = prev.players.filter(p => p.seasonId !== seasonId);
+      const remainingTransfers = prev.transfers.filter(t => t.seasonId !== seasonId);
+      const remainingYouth = prev.youthAcademy.filter(y => y.seasonId !== seasonId);
+      const remainingPress = (prev.pressConferences || []).filter(p => p.seasonId !== seasonId);
+      const remainingNews = (prev.newsArticles || []).filter(n => n.seasonId !== seasonId);
+
+      return {
+        ...prev,
+        seasons: remainingSeasons,
+        players: remainingPlayers,
+        transfers: remainingTransfers,
+        youthAcademy: remainingYouth,
+        pressConferences: remainingPress,
+        newsArticles: remainingNews
+      };
+    });
+  };
+
   const addSeason = (seasonData) => {
     if (!activeClubId) return;
     const seasonId = "s_" + Date.now();
@@ -257,6 +431,7 @@ export const AppProvider = ({ children }) => {
       clubId: activeClubId,
       year: seasonData.year,
       budget: Number(seasonData.budget) || 15000000,
+      narrativeContext: DEFAULT_SEASON_NARRATIVE,
       matchResults: { wins: 0, draws: 0, losses: 0 },
       tacticsOfensive: baseOfensive,
       tacticsDefensive: baseDefensive,
@@ -575,7 +750,7 @@ export const AppProvider = ({ children }) => {
 
   const resetToDefaultData = () => {
     localStorage.removeItem(userStorageKey);
-    setData({
+    const resetObj = {
       ...INITIAL_DATA,
       clubs: [
         {
@@ -595,6 +770,7 @@ export const AppProvider = ({ children }) => {
           clubId: "c1_" + Date.now(),
           year: "2024/25",
           budget: 15000000,
+          narrativeContext: DEFAULT_SEASON_NARRATIVE,
           matchResults: { wins: 0, draws: 0, losses: 0 },
           tacticsOfensive: {
             formation: "4-2-3-1 (Estrecho)",
@@ -622,13 +798,21 @@ export const AppProvider = ({ children }) => {
       youthAcademy: [],
       pressConferences: [],
       newsArticles: []
-    });
+    };
+
+    setData(resetObj);
+    if (currentUser?.email) {
+      saveUserCloudData(currentUser.email, { userProfile: currentUser, careerData: resetObj });
+    }
   };
 
   return (
     <AppContext.Provider value={{
       data,
       setData,
+      syncStatus,
+      lastSyncedAt,
+      forceSyncCloud,
       activeClubId,
       activeSeasonId,
       activeClub,
@@ -644,12 +828,15 @@ export const AppProvider = ({ children }) => {
       clubTotalDraws,
       clubTotalLosses,
       clubTotalMatches,
+      updateSeasonNarrative,
       recordMatchResult,
       selectClub,
       setActiveSeasonId,
       updateClub,
       addClub,
       addSeason,
+      updateSeason,
+      deleteSeason,
       addPlayer,
       updatePlayerStats,
       deletePlayer,
