@@ -6,7 +6,7 @@ import { exportDataToJson } from '../../utils/cloudSyncService';
 import { SyncDeviceModal } from './SyncDeviceModal';
 import { 
   UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, 
-  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, Smartphone 
+  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, Smartphone, LogOut 
 } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose }) => {
@@ -43,7 +43,7 @@ export const AuthModal = ({ isOpen, onClose }) => {
         setSuccessMsg("¡Sesión iniciada con éxito!");
       }
     } catch (err) {
-      setErrorMsg(err.message || "Error al autenticar.");
+      setErrorMsg(err.message || "Error en la autenticación.");
     }
   };
 
@@ -53,38 +53,39 @@ export const AuthModal = ({ isOpen, onClose }) => {
     setSuccessMsg('');
     setKeyValidationResult(null);
 
-    if (!geminiKeyInput.trim()) {
-      updateGeminiApiKey('');
-      setSuccessMsg("API Key eliminada.");
+    const cleanKey = geminiKeyInput.trim();
+    if (!cleanKey) {
+      await updateGeminiApiKey('');
+      setSuccessMsg("Clave de Gemini eliminada.");
       return;
     }
 
     setIsValidatingKey(true);
-    const valResult = await validateGeminiApiKey(geminiKeyInput);
+    const result = await validateGeminiApiKey(cleanKey);
     setIsValidatingKey(false);
-    setKeyValidationResult(valResult);
+    setKeyValidationResult(result);
 
-    if (valResult.valid) {
-      updateGeminiApiKey(geminiKeyInput);
-      setSuccessMsg("¡API Key validada y guardada permanentemente en tu cuenta de la nube!");
+    if (result.valid) {
+      await updateGeminiApiKey(cleanKey);
+      setSuccessMsg("¡Clave de Google Gemini validada y guardada permanentemente en tu cuenta!");
+      forceSyncCloud();
     } else {
-      setErrorMsg(valResult.message);
+      setErrorMsg(result.message || "La API Key de Gemini introducida no es válida.");
     }
   };
 
   const handleForceSync = async () => {
     setIsManualSyncing(true);
-    const ok = await forceSyncCloud();
-    setIsManualSyncing(false);
-    if (ok) {
-      setSuccessMsg("¡Datos sincronizados con éxito en la nube!");
-    } else {
-      setErrorMsg("No se pudo sincronizar en este momento. Revisa tu conexión.");
-    }
+    await forceSyncCloud();
+    setTimeout(() => {
+      setIsManualSyncing(false);
+      setSuccessMsg("¡Sincronización en la nube completada!");
+    }, 800);
   };
 
   const handleExportBackup = () => {
-    exportDataToJson(data, `modo_carrera_backup_${new Date().toISOString().slice(0,10)}.json`);
+    exportDataToJson(data, `modo_carrera_${currentUser ? currentUser.email : 'backup'}_${new Date().toISOString().split('T')[0]}.json`);
+    setSuccessMsg("Copia de seguridad descargada en tu dispositivo.");
   };
 
   const handleImportBackup = (e) => {
@@ -109,22 +110,45 @@ export const AuthModal = ({ isOpen, onClose }) => {
     reader.readAsText(file);
   };
 
+  const handleLogout = () => {
+    logoutUser();
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="relative my-auto w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950 shrink-0">
           <div className="flex items-center space-x-2">
             <UserCheck className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-extrabold text-base text-white">Perfil, Nube & Google Gemini IA</h3>
+            <h3 className="font-extrabold text-base text-white">Mi Cuenta, Nube & Gemini IA</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center space-x-2">
+            {currentUser && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Cerrar sesión"
+                className="flex items-center space-x-1 px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cerrar Sesión</span>
+              </button>
+            )}
+
+            <button 
+              onClick={onClose} 
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6 space-y-6 overflow-y-auto flex-1">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1">
           
           {/* Notifications */}
           {errorMsg && (
@@ -157,10 +181,11 @@ export const AuthModal = ({ isOpen, onClose }) => {
                   </div>
 
                   <button
-                    onClick={logoutUser}
-                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all"
+                    onClick={handleLogout}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition-all flex items-center space-x-1"
                   >
-                    Cerrar Sesión
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Cerrar Sesión</span>
                   </button>
                 </div>
 
@@ -265,15 +290,15 @@ export const AuthModal = ({ isOpen, onClose }) => {
                   <button
                     type="button"
                     onClick={handleExportBackup}
-                    className="flex items-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all"
+                    className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-bold transition-all"
                   >
                     <Download className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Descargar Backup JSON</span>
                   </button>
 
-                  <label className="flex items-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-xl border border-slate-700 transition-all cursor-pointer">
-                    <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Restaurar desde JSON</span>
+                  <label className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-all">
+                    <Upload className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Restaurar JSON</span>
                     <input
                       type="file"
                       accept=".json"
@@ -282,6 +307,18 @@ export const AuthModal = ({ isOpen, onClose }) => {
                     />
                   </label>
                 </div>
+              </div>
+
+              {/* Logout Button Bottom */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-black text-xs rounded-2xl flex items-center justify-center space-x-2 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar Sesión de {currentUser.email}</span>
+                </button>
               </div>
 
             </div>
