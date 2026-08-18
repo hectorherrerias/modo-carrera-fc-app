@@ -1,73 +1,47 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe } from 'lucide-react';
+import { Trophy, Sparkles, ArrowRight, Bot, Key, Cloud, Globe, User, ShieldCheck } from 'lucide-react';
 
 export const AuthGateView = () => {
-  const { loginWithRealGoogleAccount, loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
+  const { loginWithEmail, loginGuest, isCloudLoading } = useAuth();
   
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [isGoogleCustomModal, setIsGoogleCustomModal] = useState(false);
-  const [googleEmailInput, setGoogleEmailInput] = useState('');
-  
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
+  const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [showNameField, setShowNameField] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleGoogleClick = async () => {
-    setIsSubmitting(true);
-    setErrorMsg('');
-    try {
-      await loginWithRealGoogleAccount();
-    } catch (err) {
-      console.warn("Real Google Auth:", err);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        setIsGoogleCustomModal(true);
-      }
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleGoogleSubmit = async (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    if (!googleEmailInput.trim()) return;
-    setIsSubmitting(true);
-    try {
-      await loginWithGoogle(googleEmailInput);
-    } catch (err) {
-      setErrorMsg(err.message || "Error al iniciar con Gmail.");
+    if (!emailInput.trim()) {
+      setErrorMsg("Por favor, introduce tu correo electrónico.");
+      return;
     }
-    setIsSubmitting(false);
-  };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
     setErrorMsg('');
     setIsSubmitting(true);
 
     try {
-      if (isSignUp) {
-        await registerUser(name, email, password);
-      } else {
-        await loginUser(email, password);
-      }
+      await loginWithEmail(emailInput, nameInput);
     } catch (err) {
-      setErrorMsg(err.message || "Error al autenticar.");
+      setErrorMsg(err.message || "Error al conectar con tu cuenta.");
     }
     setIsSubmitting(false);
+  };
+
+  const handleGuestEntry = () => {
+    loginGuest();
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden">
       
-      {/* Background Glows */}
+      {/* Background Ambient Glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/15 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-cyan-500/15 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Top Navbar Brand */}
-      <header className="py-6 px-6 sm:px-12 flex items-center justify-between z-10 border-b border-slate-900 bg-slate-950/60 backdrop-blur-md">
+      {/* Top Navbar */}
+      <header className="py-5 px-6 sm:px-12 flex items-center justify-between z-10 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 p-0.5 shadow-lg shadow-emerald-500/20">
             <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
@@ -84,107 +58,61 @@ export const AuthGateView = () => {
 
         <div className="flex items-center space-x-2 text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-full border border-emerald-500/30">
           <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Sincronización Automática por Usuario</span>
+          <span className="hidden sm:inline">Sincronización Cloud Automática</span>
         </div>
       </header>
 
-      {/* Main Hero & Auth Split */}
-      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center z-10 my-auto">
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center z-10 my-auto w-full">
         
         {/* Left Hero Pitch */}
         <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Gestor Profesional de Carrera & Asistente Google Gemini IA</span>
+            <span>Gestor de Modo Carrera & Asistente Google Gemini IA</span>
           </div>
 
-          <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tight font-outfit leading-tight">
-            Tu Modo Carrera <br />
+          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+            Accede a tu Modo Carrera <br />
             <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Sincronizado con tu Cuenta
+              Desde Cualquier Dispositivo
             </span>
           </h2>
 
-          <p className="text-slate-400 text-base sm:text-lg max-w-2xl leading-relaxed">
-            Inicia sesión con tu cuenta de Google / Gmail desde cualquier dispositivo. Tus clubes, tácticas, plantilla, contexto de temporada y tu clave de Gemini están siempre guardados en tu cuenta listos para jugar.
+          <p className="text-slate-400 text-sm sm:text-base max-w-xl leading-relaxed">
+            Introduce tu correo de Gmail o de usuario. Toda tu partida, clubes, alineaciones ofensivas/defensivas, ruedas de prensa con IA y tu clave de Gemini se sincronizan automáticamente en la nube.
           </p>
 
-          {/* Value Props */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 text-left max-w-xl">
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 text-left max-w-lg mx-auto lg:mx-0">
+            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
               <Globe className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-white">Sincronización por Usuario</h4>
-                <p className="text-xs text-slate-400">Entra con el mismo usuario en cualquier dispositivo para ver tu partida al instante.</p>
+                <h4 className="font-bold text-xs sm:text-sm text-white">Sincronización Cloud</h4>
+                <p className="text-[11px] text-slate-400">Entra con el mismo correo desde PC, iPad o móvil para ver exactamente lo mismo.</p>
               </div>
             </div>
 
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
+            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
               <Bot className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-white">Gemini IA Permanente</h4>
-                <p className="text-xs text-slate-400">Guarda tu API Key una sola vez y se recordará para siempre en tu cuenta.</p>
+                <h4 className="font-bold text-xs sm:text-sm text-white">Gemini IA Integrada</h4>
+                <p className="text-[11px] text-slate-400">Ruedas de prensa que recuerdan el contexto de tu temporada y fichajes.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Auth Card */}
+        {/* Right Form Card */}
         <div className="lg:col-span-5 w-full max-w-md mx-auto">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative space-y-6">
+          <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
             
             <div className="text-center space-y-1">
-              <h3 className="text-2xl font-black text-white font-outfit">
-                {isSignUp ? 'Crear Tu Cuenta' : 'Acceder al Juego'}
+              <h3 className="text-xl sm:text-2xl font-black text-white">
+                Iniciar Sesión / Acceder
               </h3>
               <p className="text-xs text-slate-400">
-                Inicia sesión para sincronizar tu partida
+                Introduce tu correo para cargar o crear tu partida
               </p>
-            </div>
-
-            {/* Google / Gmail Fast Auth Button */}
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={handleGoogleClick}
-                className="w-full py-3 px-4 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-2xl shadow-lg transition-all flex items-center justify-center space-x-3 border border-slate-200"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                <span>Continuar con Google / Gmail</span>
-              </button>
-
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-800"></div>
-                <span className="flex-shrink mx-3 text-[10px] uppercase font-bold text-slate-500">o accede con correo</span>
-                <div className="flex-grow border-t border-slate-800"></div>
-              </div>
-            </div>
-
-            {/* Switch Tab */}
-            <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => { setIsSignUp(false); setErrorMsg(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  !isSignUp ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Iniciar Sesión
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsSignUp(true); setErrorMsg(''); }}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  isSignUp ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Registrarse
-              </button>
             </div>
 
             {errorMsg && (
@@ -193,101 +121,81 @@ export const AuthGateView = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {isSignUp && (
+            {/* Quick Email Form */}
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                  Correo Electrónico (Gmail / Correo)
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="ejemplo@gmail.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-emerald-400 placeholder:text-slate-600 transition-all"
+                />
+              </div>
+
+              {showNameField && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Nombre de Mánager</label>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1.5">
+                    Nombre de Mánager (Opcional)
+                  </label>
                   <input
                     type="text"
-                    required
                     placeholder="Ej. Héctor Herrerías"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-2xl text-white text-sm focus:outline-none focus:border-emerald-400 placeholder:text-slate-600 transition-all"
                   />
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Correo Electrónico (Gmail / Otro)</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="tu.correo@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Contraseña</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
-                />
+              <div className="flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => setShowNameField(!showNameField)}
+                  className="text-emerald-400 hover:underline font-semibold"
+                >
+                  {showNameField ? "- Ocultar nombre" : "+ Añadir nombre de mánager"}
+                </button>
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 mt-2 disabled:opacity-50"
+                disabled={isSubmitting || isCloudLoading}
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
-                <span>{isSignUp ? 'Crear Cuenta e Ingresar' : 'Entrar a Mis Clubes'}</span>
+                <span>{isSubmitting || isCloudLoading ? 'Cargando tu partida...' : 'Entrar a Mi Modo Carrera'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-800"></div>
+              <span className="flex-shrink mx-3 text-[10px] uppercase font-bold text-slate-500">o acceso rápido</span>
+              <div className="flex-grow border-t border-slate-800"></div>
+            </div>
+
+            {/* Guest Quick Entry Button */}
+            <button
+              type="button"
+              onClick={handleGuestEntry}
+              className="w-full py-3 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white font-bold text-xs rounded-2xl transition-all flex items-center justify-center space-x-2"
+            >
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              <span>Entrar como Invitado / Modo Prueba</span>
+            </button>
 
           </div>
         </div>
 
       </main>
 
-      {/* Gmail Input Modal */}
-      {isGoogleCustomModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h4 className="font-extrabold text-white text-base">Acceso con Cuenta de Gmail</h4>
-              <button onClick={() => setIsGoogleCustomModal(false)} className="text-slate-400 hover:text-white">✕</button>
-            </div>
-
-            <p className="text-xs text-slate-400">
-              Introduce tu correo de Gmail para conectar y cargar tus clubes y partidas de tu cuenta:
-            </p>
-
-            <form onSubmit={handleGoogleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Tu Correo de Gmail</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="ejemplo@gmail.com"
-                  value={googleEmailInput}
-                  onChange={(e) => setGoogleEmailInput(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow transition-all disabled:opacity-50"
-              >
-                {isSubmitting ? 'Cargando datos...' : 'Continuar con Gmail'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 z-10">
-        <p>© {new Date().getFullYear()} Career Mode Tracker • Sincronización Automática por Usuario y Google Gemini IA</p>
+      <footer className="border-t border-slate-900 bg-slate-950 py-5 text-center text-xs text-slate-500 z-10">
+        <p>© {new Date().getFullYear()} Career Mode Tracker • Sincronización Cloud Automática & Google Gemini IA</p>
       </footer>
 
     </div>

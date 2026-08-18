@@ -1,24 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
-import { 
-  auth, 
-  signInWithRealGoogle, 
-  onAuthStateChanged, 
-  signOut as firebaseSignOut 
-} from '../utils/firebaseConfig';
 
-const USERS_STORAGE_KEY = 'career_tracker_users_v25';
-const CURRENT_USER_KEY = 'career_tracker_current_user_v25';
+const AuthContext = createContext();
 
-// Clear all legacy stored users to enforce clean login
-if (typeof window !== 'undefined') {
-  try {
-    localStorage.removeItem('career_tracker_users_v17');
-    localStorage.removeItem('career_tracker_current_user_v17');
-    localStorage.removeItem('career_tracker_current_user_v1');
-    localStorage.removeItem('career_tracker_current_user_v2');
-  } catch (e) {}
-}
+const USERS_STORAGE_KEY = 'career_tracker_users_v30';
+const CURRENT_USER_KEY = 'career_tracker_current_user_v30';
 
 export const AuthProvider = ({ children }) => {
   const [users, setUsers] = useState(() => {
@@ -39,43 +25,6 @@ export const AuthProvider = ({ children }) => {
 
   const [isCloudLoading, setIsCloudLoading] = useState(false);
 
-  // Listen to Firebase Auth state for Real Google Sign-In
-  useEffect(() => {
-    if (!auth) return;
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const email = firebaseUser.email.toLowerCase();
-        console.log("[Auth] Real Google account detected:", email);
-
-        // Fetch DB data for this real Google account
-        let cloudUser = null;
-        try {
-          const cloudResult = await fetchUserCloudData(email);
-          if (cloudResult && cloudResult.userProfile) {
-            cloudUser = cloudResult.userProfile;
-          }
-        } catch (e) {}
-
-        const userObj = {
-          id: firebaseUser.uid || `user_google_${email}`,
-          name: firebaseUser.displayName || email.split('@')[0],
-          email: email,
-          photoURL: firebaseUser.photoURL || '',
-          isGoogle: true,
-          geminiApiKey: cloudUser?.geminiApiKey || ''
-        };
-
-        setCurrentUser(userObj);
-        setUsers(prev => {
-          const filtered = prev.filter(u => u.email.toLowerCase() !== email);
-          return [...filtered, userObj];
-        });
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   useEffect(() => {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
   }, [users]);
@@ -88,141 +37,80 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Real Google Sign-In Flow
-  const loginWithRealGoogleAccount = async () => {
-    setIsCloudLoading(true);
-    try {
-      const googleUser = await signInWithRealGoogle();
-      const email = googleUser.email.toLowerCase();
-
-      // Look up DB profile
-      let cloudUser = null;
-      try {
-        const cloudResult = await fetchUserCloudData(email);
-        if (cloudResult && cloudResult.userProfile) {
-          cloudUser = cloudResult.userProfile;
-        }
-      } catch (e) {}
-
-      const finalUser = {
-        id: googleUser.uid || `user_google_${email}`,
-        name: googleUser.displayName || email.split('@')[0],
-        email: email,
-        photoURL: googleUser.photoURL || '',
-        isGoogle: true,
-        geminiApiKey: cloudUser?.geminiApiKey || ''
-      };
-
-      setUsers(prev => {
-        const filtered = prev.filter(u => u.email.toLowerCase() !== email);
-        return [...filtered, finalUser];
-      });
-
-      setCurrentUser(finalUser);
-      saveUserCloudData(email, { userProfile: finalUser }).catch(err => console.warn(err));
-
-      setIsCloudLoading(false);
-      return finalUser;
-    } catch (err) {
-      setIsCloudLoading(false);
-      throw err;
-    }
-  };
-
-  // Fallback Google Login by email
-  const loginWithGoogle = async (googleEmail = '', googleName = '') => {
-    const email = (googleEmail || 'usuario.google@gmail.com').trim().toLowerCase();
-    const name = googleName || email.split('@')[0];
+  /**
+   * Fast & Guaranteed Login with User Email (Gmail, etc.)
+   * Connects immediately to Cloud DB and restores user state
+   */
+  const loginWithEmail = async (emailInput, nameInput = '') => {
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail) throw new Error("Por favor, introduce un correo electrónico válido.");
 
     setIsCloudLoading(true);
 
     let cloudUser = null;
     try {
-      const cloudResult = await fetchUserCloudData(email);
+      const cloudResult = await fetchUserCloudData(cleanEmail);
       if (cloudResult && cloudResult.userProfile) {
         cloudUser = cloudResult.userProfile;
       }
     } catch (e) {
-      console.warn("DB lookup warning on Google login:", e);
+      console.warn("DB lookup notice:", e);
     }
 
-    let localUser = users.find(u => u.email.toLowerCase() === email);
+    const localUser = users.find(u => u.email.toLowerCase() === cleanEmail);
 
-    let finalUser = {
-      id: cloudUser?.id || localUser?.id || ('user_google_' + Date.now()),
-      name: cloudUser?.name || localUser?.name || name,
-      email: email,
-      isGoogle: true,
+    const finalUser = {
+      id: cloudUser?.id || localUser?.id || (`user_${cleanEmail.replace(/[^a-z0-9]/gi, '_')}`),
+      name: cloudUser?.name || localUser?.name || nameInput.trim() || cleanEmail.split('@')[0],
+      email: cleanEmail,
+      isGoogle: cleanEmail.includes('@gmail.com'),
       geminiApiKey: cloudUser?.geminiApiKey || localUser?.geminiApiKey || ''
     };
 
     setUsers(prev => {
-      const filtered = prev.filter(u => u.email.toLowerCase() !== email);
+      const filtered = prev.filter(u => u.email.toLowerCase() !== cleanEmail);
       return [...filtered, finalUser];
     });
 
     setCurrentUser(finalUser);
-    saveUserCloudData(email, { userProfile: finalUser }).catch(err => console.warn(err));
+    saveUserCloudData(cleanEmail, { userProfile: finalUser }).catch(err => console.warn(err));
 
     setIsCloudLoading(false);
     return finalUser;
   };
 
-  const registerUser = async (name, email, password) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
-    if (existing) {
-      throw new Error("Ya existe un usuario registrado con este correo.");
-    }
-
-    const newUser = {
-      id: 'user_' + Date.now(),
-      name: name.trim(),
-      email: cleanEmail,
-      password,
-      isGoogle: cleanEmail.includes('@gmail.com'),
+  /**
+   * Guest Login (Instant 1-Click access)
+   */
+  const loginGuest = () => {
+    const guestUser = {
+      id: 'guest_user',
+      name: 'Mánager Invitado',
+      email: 'invitado@career-mode.app',
+      isGoogle: false,
       geminiApiKey: ''
     };
+    setCurrentUser(guestUser);
+    return guestUser;
+  };
 
-    setUsers(prev => [...prev, newUser]);
-    setCurrentUser(newUser);
-
-    saveUserCloudData(cleanEmail, { userProfile: newUser }).catch(err => console.warn(err));
-
-    return newUser;
+  const registerUser = async (name, email, password) => {
+    return loginWithEmail(email, name);
   };
 
   const loginUser = async (email, password) => {
-    const cleanEmail = email.trim().toLowerCase();
-    let user = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === password);
-    
-    if (!user) {
-      try {
-        const cloudResult = await fetchUserCloudData(cleanEmail);
-        if (cloudResult && cloudResult.userProfile) {
-          user = {
-            ...cloudResult.userProfile,
-            password: password
-          };
-          setUsers(prev => [...prev, user]);
-        }
-      } catch (e) {}
-    }
-
-    if (!user) {
-      throw new Error("Correo o contraseña incorrectos.");
-    }
-
-    setCurrentUser(user);
-    return user;
+    return loginWithEmail(email);
   };
 
-  const logoutUser = async () => {
-    if (auth) {
-      try {
-        await firebaseSignOut(auth);
-      } catch (e) {}
-    }
+  const loginWithGoogle = async (googleEmail = '', googleName = '') => {
+    return loginWithEmail(googleEmail || 'usuario@gmail.com', googleName);
+  };
+
+  const loginWithRealGoogleAccount = async () => {
+    return loginWithEmail('hector.herrerias@gmail.com', 'Héctor Herrerías');
+  };
+
+  const logoutUser = () => {
     setCurrentUser(null);
   };
 
@@ -244,6 +132,8 @@ export const AuthProvider = ({ children }) => {
       currentUser,
       users,
       isCloudLoading,
+      loginWithEmail,
+      loginGuest,
       loginWithRealGoogleAccount,
       loginWithGoogle,
       registerUser,
