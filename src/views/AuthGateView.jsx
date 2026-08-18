@@ -4,7 +4,7 @@ import { SyncDeviceModal } from '../components/Modals/SyncDeviceModal';
 import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe, Smartphone } from 'lucide-react';
 
 export const AuthGateView = () => {
-  const { loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
+  const { loginWithRealGoogleAccount, loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [isGoogleCustomModal, setIsGoogleCustomModal] = useState(false);
@@ -18,8 +18,18 @@ export const AuthGateView = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleGoogleClick = () => {
-    setIsGoogleCustomModal(true);
+  const handleGoogleClick = async () => {
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await loginWithRealGoogleAccount();
+    } catch (err) {
+      console.warn("Real Google Auth:", err);
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setIsGoogleCustomModal(true);
+      }
+    }
+    setIsSubmitting(false);
   };
 
   const handleGoogleSubmit = async (e) => {
