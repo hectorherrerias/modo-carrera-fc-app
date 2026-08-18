@@ -7,10 +7,18 @@ import {
   signOut as firebaseSignOut 
 } from '../utils/firebaseConfig';
 
-const AuthContext = createContext();
+const USERS_STORAGE_KEY = 'career_tracker_users_v25';
+const CURRENT_USER_KEY = 'career_tracker_current_user_v25';
 
-const USERS_STORAGE_KEY = 'career_tracker_users_v17';
-const CURRENT_USER_KEY = 'career_tracker_current_user_v17';
+// Clear all legacy stored users to enforce clean login
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('career_tracker_users_v17');
+    localStorage.removeItem('career_tracker_current_user_v17');
+    localStorage.removeItem('career_tracker_current_user_v1');
+    localStorage.removeItem('career_tracker_current_user_v2');
+  } catch (e) {}
+}
 
 export const AuthProvider = ({ children }) => {
   const [users, setUsers] = useState(() => {
