@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Move, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ArrowUpDown, Swords, Shield, LayoutList, ChevronRight } from 'lucide-react';
 
 export const FORMATION_PRESETS = {
@@ -220,6 +220,26 @@ export const FootballPitch = ({
   const baseSlots = FORMATION_PRESETS[formationKey] || FORMATION_PRESETS["4-2-3-1 (Estrecho)"];
   const [activeDraggingIdx, setActiveDraggingIdx] = useState(null);
 
+  // Prevent Mobile Touch Vertical Page Scroll during active player node dragging!
+  useEffect(() => {
+    const pitchElement = pitchRef.current;
+    if (!pitchElement) return;
+
+    const preventTouchScroll = (e) => {
+      if (activeDraggingIdx !== null) {
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+
+    pitchElement.addEventListener('touchmove', preventTouchScroll, { passive: false });
+    pitchElement.addEventListener('touchstart', preventTouchScroll, { passive: false });
+
+    return () => {
+      pitchElement.removeEventListener('touchmove', preventTouchScroll);
+      pitchElement.removeEventListener('touchstart', preventTouchScroll);
+    };
+  }, [activeDraggingIdx]);
+
   const handleNudge = (idx, dx, dy) => {
     if (!onUpdatePositionCoords) return;
     const currentCustom = startingXI[idx]?.customPos;
@@ -235,12 +255,14 @@ export const FootballPitch = ({
   };
 
   const handlePointerDown = (e, index) => {
+    if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     setActiveDraggingIdx(index);
   };
 
   const handlePointerMove = (e) => {
     if (activeDraggingIdx === null || !pitchRef.current || !onUpdatePositionCoords) return;
+    if (e.cancelable) e.preventDefault();
     
     const rect = pitchRef.current.getBoundingClientRect();
     const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
@@ -268,6 +290,7 @@ export const FootballPitch = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      style={{ touchAction: activeDraggingIdx !== null ? 'none' : 'auto' }}
       className={`relative w-full max-w-4xl mx-auto rounded-3xl overflow-hidden border-2 transition-all duration-300 shadow-2xl p-3 sm:p-6 select-none ${
         isOfensive 
           ? 'border-emerald-500/40 shadow-emerald-950/50 bg-slate-900' 
@@ -335,7 +358,8 @@ export const FootballPitch = ({
       {viewMode === 'pitch' ? (
         <div 
           ref={pitchRef}
-          className="relative w-full aspect-[3/4.6] sm:aspect-[4/4.8] rounded-2xl bg-gradient-to-b from-pitch-grass via-pitch-dark to-pitch-grass border border-emerald-500/20 shadow-inner overflow-hidden flex flex-col justify-between"
+          style={{ touchAction: 'none' }}
+          className="relative w-full aspect-[3/4.6] sm:aspect-[4/4.8] rounded-2xl bg-gradient-to-b from-pitch-grass via-pitch-dark to-pitch-grass border border-emerald-500/20 shadow-inner overflow-hidden flex flex-col justify-between touch-none"
         >
           
           {/* Grass texture & lines */}
@@ -366,7 +390,7 @@ export const FootballPitch = ({
           </div>
 
           {/* Player Nodes Layer with Clean Touch Badges */}
-          <div className="absolute inset-0 z-10">
+          <div className="absolute inset-0 z-10 touch-none" style={{ touchAction: 'none' }}>
             {baseSlots.map((baseSlot, index) => {
               const assignedItem = startingXI[index] || { position: baseSlot.pos, playerName: "", substitutes: [] };
               const starterPlayer = players.find(p => p.name.toLowerCase() === assignedItem.playerName?.toLowerCase());
@@ -388,9 +412,10 @@ export const FootballPitch = ({
                   style={{
                     left: `${posX}%`,
                     bottom: `${posY}%`,
-                    transform: 'translate(-50%, 50%)'
+                    transform: 'translate(-50%, 50%)',
+                    touchAction: 'none'
                   }}
-                  className="absolute flex flex-col items-center group transition-all duration-75"
+                  className="absolute flex flex-col items-center group transition-all duration-75 touch-none"
                 >
                   
                   {/* Directional Nudge Arrows (Hover on Desktop) */}
@@ -412,8 +437,10 @@ export const FootballPitch = ({
                   {/* STARTER NODE BUTTON (Large Touch Target 44px+) */}
                   <div 
                     onPointerDown={(e) => handlePointerDown(e, index)}
+                    onTouchStart={(e) => handlePointerDown(e, index)}
                     onClick={() => onSelectSlot && onSelectSlot(index, baseSlot, assignedItem)}
-                    className={`relative flex flex-col items-center cursor-grab active:cursor-grabbing transition-transform ${
+                    style={{ touchAction: 'none' }}
+                    className={`relative flex flex-col items-center cursor-grab active:cursor-grabbing transition-transform touch-none ${
                       activeDraggingIdx === index ? 'scale-110 z-30 shadow-2xl' : 'hover:scale-105'
                     }`}
                   >
