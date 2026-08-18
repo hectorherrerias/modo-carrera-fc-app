@@ -10,6 +10,7 @@ import { PressConferenceTab } from '../components/Tabs/PressConferenceTab';
 import { PressNewsTab } from '../components/Tabs/PressNewsTab';
 import { EditClubModal } from '../components/Modals/EditClubModal';
 import { ClubLogo } from '../components/ClubLogo';
+import { MobileBottomNav } from '../components/MobileBottomNav';
 
 export const SeasonDashboardView = () => {
   const { activeClub, activeSeason, updateClub, recordMatchResult, computedWinRate } = useApp();
@@ -29,7 +30,6 @@ export const SeasonDashboardView = () => {
   const seasonDraws = matchResults.draws || 0;
   const seasonLosses = matchResults.losses || 0;
   const seasonTotalMatches = seasonWins + seasonDraws + seasonLosses;
-  const seasonWinRate = seasonTotalMatches > 0 ? ((seasonWins / seasonTotalMatches) * 100).toFixed(1) : "0.0";
 
   const tabs = [
     { id: 'tactics', label: 'Táctica y 11 de Gala', icon: LayoutGrid },
@@ -42,18 +42,18 @@ export const SeasonDashboardView = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 pb-20 sm:pb-8">
       
       {/* Dashboard Top Season Header Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 sm:gap-6">
         
         {/* Left Club Branding */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
           <div 
             className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl flex items-center justify-center p-1.5 shadow-xl border border-white/10 overflow-hidden shrink-0"
             style={{ backgroundColor: `${activeClub.color || '#10B981'}25` }}
           >
-            <ClubLogo logo={activeClub.logo} name={activeClub.name} className="w-12 h-12" />
+            <ClubLogo logo={activeClub.logo} name={activeClub.name} className="w-10 h-10 sm:w-12 sm:h-12" />
           </div>
 
           <div>
@@ -73,11 +73,11 @@ export const SeasonDashboardView = () => {
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-black text-white font-outfit mt-1">
+            <h1 className="text-xl sm:text-3xl font-black text-white font-outfit mt-0.5 sm:mt-1">
               Panel de Control Principal
             </h1>
 
-            <p className="text-xs text-slate-400 flex flex-wrap items-center gap-2 mt-1">
+            <p className="text-[11px] sm:text-xs text-slate-400 flex flex-wrap items-center gap-2 mt-0.5 sm:mt-1">
               <span className="flex items-center space-x-1">
                 <Landmark className="w-3.5 h-3.5 text-amber-400" />
                 <span>Estadio: <strong className="text-slate-200">{activeClub.stadium || 'Estadio Municipal'}</strong></span>
@@ -92,26 +92,26 @@ export const SeasonDashboardView = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
           
           {/* W-D-L Counters Box */}
-          <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-4">
+          <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3 sm:gap-4">
             
             {/* Wins */}
             <div className="flex flex-col items-center">
               <span className="text-[9px] font-black uppercase text-emerald-400">VICTORIAS</span>
-              <span className="text-lg font-black text-white">{seasonWins}</span>
+              <span className="text-base sm:text-lg font-black text-white">{seasonWins}</span>
               <div className="flex space-x-1 mt-0.5">
                 <button
                   onClick={() => recordMatchResult('win', 1)}
-                  className="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-0.5 rounded text-xs font-bold"
+                  className="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-1 sm:p-0.5 rounded text-xs font-bold"
                   title="Sumar victoria (+1)"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
                 <button
                   onClick={() => recordMatchResult('win', -1)}
-                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-0.5 rounded text-xs"
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-1 sm:p-0.5 rounded text-xs"
                   title="Restar victoria (-1)"
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
               </div>
             </div>
@@ -121,21 +121,21 @@ export const SeasonDashboardView = () => {
             {/* Draws */}
             <div className="flex flex-col items-center">
               <span className="text-[9px] font-black uppercase text-amber-400">EMPATES</span>
-              <span className="text-lg font-black text-white">{seasonDraws}</span>
+              <span className="text-base sm:text-lg font-black text-white">{seasonDraws}</span>
               <div className="flex space-x-1 mt-0.5">
                 <button
                   onClick={() => recordMatchResult('draw', 1)}
-                  className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 p-0.5 rounded text-xs font-bold"
+                  className="bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 p-1 sm:p-0.5 rounded text-xs font-bold"
                   title="Sumar empate (+1)"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
                 <button
                   onClick={() => recordMatchResult('draw', -1)}
-                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-0.5 rounded text-xs"
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-1 sm:p-0.5 rounded text-xs"
                   title="Restar empate (-1)"
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
               </div>
             </div>
@@ -145,21 +145,21 @@ export const SeasonDashboardView = () => {
             {/* Losses */}
             <div className="flex flex-col items-center">
               <span className="text-[9px] font-black uppercase text-rose-400">DERROTAS</span>
-              <span className="text-lg font-black text-white">{seasonLosses}</span>
+              <span className="text-base sm:text-lg font-black text-white">{seasonLosses}</span>
               <div className="flex space-x-1 mt-0.5">
                 <button
                   onClick={() => recordMatchResult('loss', 1)}
-                  className="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 p-0.5 rounded text-xs font-bold"
+                  className="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 p-1 sm:p-0.5 rounded text-xs font-bold"
                   title="Sumar derrota (+1)"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
                 <button
                   onClick={() => recordMatchResult('loss', -1)}
-                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-0.5 rounded text-xs"
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-400 p-1 sm:p-0.5 rounded text-xs"
                   title="Restar derrota (-1)"
                 >
-                  <Minus className="w-3 h-3" />
+                  <Minus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </button>
               </div>
             </div>
@@ -167,12 +167,12 @@ export const SeasonDashboardView = () => {
           </div>
 
           {/* Win Rate Percentage Card */}
-          <div className="bg-slate-950/90 border border-slate-800 px-4 py-3 rounded-2xl text-center flex flex-col justify-center">
+          <div className="bg-slate-950/90 border border-slate-800 px-4 py-2.5 rounded-2xl text-center flex flex-col justify-center">
             <span className="text-[9px] font-black uppercase text-slate-400 flex items-center justify-center space-x-1">
               <Percent className="w-3 h-3 text-emerald-400" />
               <span>% Victorias (Global)</span>
             </span>
-            <span className="text-xl font-black text-emerald-400 font-outfit mt-0.5">
+            <span className="text-lg sm:text-xl font-black text-emerald-400 font-outfit mt-0.5">
               {computedWinRate}%
             </span>
             <span className="text-[9px] text-slate-500">
@@ -184,8 +184,8 @@ export const SeasonDashboardView = () => {
 
       </div>
 
-      {/* Tabs Navigation Bar */}
-      <div className="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
+      {/* Tabs Navigation Bar (Desktop & Tablet) */}
+      <div className="hidden sm:flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -193,7 +193,7 @@ export const SeasonDashboardView = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+              className={`flex items-center space-x-2 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 ${
                 isActive
                   ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20 scale-105'
                   : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -207,7 +207,7 @@ export const SeasonDashboardView = () => {
       </div>
 
       {/* Tab Content Display */}
-      <div className="pt-2">
+      <div className="pt-1 sm:pt-2">
         {activeTab === 'tactics' && <TacticsTab />}
         {activeTab === 'stats' && <SquadStatsTab />}
         {activeTab === 'competitions' && <CompetitionsTab />}
@@ -216,6 +216,9 @@ export const SeasonDashboardView = () => {
         {activeTab === 'press' && <PressConferenceTab />}
         {activeTab === 'news' && <PressNewsTab />}
       </div>
+
+      {/* Sticky Bottom Nav Bar for Mobile Smartphones */}
+      <MobileBottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <EditClubModal
         isOpen={isEditClubModalOpen}

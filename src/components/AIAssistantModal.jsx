@@ -88,10 +88,10 @@ export const AIAssistantModal = () => {
 
   return (
     <>
-      {/* Floating Magic AI Button (Bottom Right) */}
+      {/* Floating Magic AI Button (Adjusted above Mobile Nav bar) */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center space-x-2 px-4 py-3 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-black text-xs shadow-2xl shadow-emerald-500/40 hover:scale-105 transition-all duration-300 border border-white/20"
+        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40 flex items-center space-x-2 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 font-black text-xs shadow-2xl shadow-emerald-500/40 hover:scale-105 transition-all duration-300 border border-white/20"
       >
         <Sparkles className="w-4 h-4 text-slate-950" />
         <span>ASISTENTE IA</span>
@@ -100,18 +100,18 @@ export const AIAssistantModal = () => {
 
       {/* AI Assistant Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-lg bg-slate-900 border border-emerald-500/40 rounded-3xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <Bot className="w-6 h-6" />
+                <div className="w-9 h-9 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Bot className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-1.5">
-                    <h3 className="font-extrabold text-base text-white">Asistente por Inteligencia Artificial</h3>
+                    <h3 className="font-extrabold text-sm sm:text-base text-white">Asistente por Inteligencia Artificial</h3>
                     {currentUser?.geminiApiKey && (
                       <span className="text-[9px] font-black text-amber-400 bg-amber-950 border border-amber-500/30 px-1.5 py-0.5 rounded">
                         Gemini Live ⚡
@@ -128,11 +128,11 @@ export const AIAssistantModal = () => {
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               
               {/* Feedback Alert Toast */}
               {feedback && (
-                <div className={`p-4 rounded-2xl border text-xs font-semibold flex items-start space-x-3 transition-all ${
+                <div className={`p-3.5 rounded-2xl border text-xs font-semibold flex items-start space-x-3 transition-all ${
                   feedback.success 
                     ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200' 
                     : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
@@ -147,7 +147,7 @@ export const AIAssistantModal = () => {
 
               {/* Gemini Live API Reply */}
               {geminiLiveResponse && (
-                <div className="p-4 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-xs space-y-1">
+                <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-xs space-y-1">
                   <span className="text-[10px] uppercase font-bold text-amber-400 block">Respuesta de tu cuenta Gemini AI:</span>
                   <p className="italic">{geminiLiveResponse}</p>
                 </div>
