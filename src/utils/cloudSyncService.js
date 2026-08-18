@@ -1,171 +1,169 @@
 /**
- * Cloud Sync Service for Career Mode Tracker
- * Enables instant cross-device data synchronization when logging in with the same Gmail address.
- * Uses a cloud master registry and dedicated user objects with automatic local fallback.
+ * Cloud Sync Service V3 (Multi-Device Guarantee)
+ * Enables guaranteed synchronization between PC, iPad, iPhone, Android, and tablets.
+ * Supports:
+ * 1. 1-Click Device Sync Links & QR Payloads (Instant local-to-remote zero-config pairing)
+ * 2. Direct Firebase Realtime Database REST Sync (Free, unmetered cloud sync)
+ * 3. JSON Backups (Import / Export)
  */
 
-const API_BASE = 'https://api.restful-api.dev/objects';
-const MASTER_REGISTRY_ID = 'ff8081819ff5b11001a015c20a22454a';
+const CLOUD_DB_KEY = 'career_tracker_cloud_db_url_v1';
+const DEFAULT_FIREBASE_DB = 'https://modo-carrera-fc-sync-default-rtdb.firebaseio.com';
 
 const sanitizeEmail = (email) => {
   return (email || '').trim().toLowerCase();
 };
 
+const emailToKey = (email) => {
+  const clean = sanitizeEmail(email);
+  return clean.replace(/[^a-z0-9]/gi, '_');
+};
+
 /**
- * Fetch the master registry that maps emails to cloud document IDs
+ * Get or Set custom Firebase Realtime Database URL
  */
-export const getMasterRegistry = async () => {
+export const getStoredCloudDbUrl = () => {
+  return localStorage.getItem(CLOUD_DB_KEY) || DEFAULT_FIREBASE_DB;
+};
+
+export const setStoredCloudDbUrl = (url) => {
+  if (!url) {
+    localStorage.removeItem(CLOUD_DB_KEY);
+  } else {
+    let cleanUrl = url.trim();
+    if (cleanUrl.endsWith('/')) cleanUrl = cleanUrl.slice(0, -1);
+    localStorage.setItem(CLOUD_DB_KEY, cleanUrl);
+  }
+};
+
+/**
+ * Generate a 1-Click Device Sync Link with base64 payload
+ */
+export const generateDeviceSyncUrl = (user, careerData) => {
+  const payload = {
+    user: {
+      id: user?.id,
+      name: user?.name,
+      email: user?.email,
+      isGoogle: user?.isGoogle,
+      geminiApiKey: user?.geminiApiKey || ''
+    },
+    careerData: careerData,
+    cloudDbUrl: getStoredCloudDbUrl(),
+    syncedAt: Date.now()
+  };
+
   try {
-    const res = await fetch(`${API_BASE}/${MASTER_REGISTRY_ID}`);
-    if (!res.ok) {
-      console.warn("Could not fetch cloud master registry, status:", res.status);
-      return {};
+    const jsonStr = JSON.stringify(payload);
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}#sync=${encoded}`;
+  } catch (err) {
+    console.error("Error generating sync link:", err);
+    return null;
+  }
+};
+
+/**
+ * Parse a sync payload from hash or string
+ */
+export const parseDeviceSyncPayload = (rawString) => {
+  try {
+    let base64 = rawString;
+    if (rawString.includes('#sync=')) {
+      base64 = rawString.split('#sync=')[1];
     }
-    const doc = await res.json();
-    return doc.data?.userMap || {};
+    const jsonStr = decodeURIComponent(escape(atob(base64)));
+    const parsed = JSON.parse(jsonStr);
+    if (parsed && (parsed.careerData || parsed.user)) {
+      return parsed;
+    }
   } catch (err) {
-    console.warn("Error loading cloud registry:", err);
-    return {};
+    console.warn("Could not parse sync payload:", err);
   }
+  return null;
 };
 
 /**
- * Update the master registry with a new email -> objectId mapping
+ * Fetch user data from Cloud DB (Firebase REST)
  */
-const updateMasterRegistry = async (userMap) => {
-  try {
-    const res = await fetch(`${API_BASE}/${MASTER_REGISTRY_ID}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'CAREER_MODE_MASTER_REGISTRY_V1',
-        data: { userMap }
-      })
-    });
-    return res.ok;
-  } catch (err) {
-    console.warn("Error updating cloud registry:", err);
-    return false;
-  }
-};
-
-/**
- * Fetch user data (profile & career data) from the cloud by Gmail / email
- */
-export const fetchUserCloudData = async (email) => {
+export const fetchUserCloudData = async (email, customDbUrl = null) => {
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return null;
 
+  const key = emailToKey(cleanEmail);
+  const dbUrl = customDbUrl || getStoredCloudDbUrl();
+
   try {
-    const registry = await getMasterRegistry();
-    const objectId = registry[cleanEmail];
+    const endpoint = `${dbUrl}/career_users/${key}.json`;
+    const res = await fetch(endpoint, {
+      headers: { 'Accept': 'application/json' }
+    });
 
-    if (!objectId) {
-      console.log(`Cloud Sync: No cloud document yet for ${cleanEmail}`);
-      return null;
-    }
-
-    const res = await fetch(`${API_BASE}/${objectId}`);
     if (!res.ok) {
-      console.warn(`Cloud Sync: Failed to fetch object ${objectId}`);
+      console.log(`Cloud Sync fetch returned status ${res.status} from ${dbUrl}`);
       return null;
     }
 
     const doc = await res.json();
-    if (doc.data) {
-      console.log(`Cloud Sync: Successfully loaded cloud data for ${cleanEmail}`);
+    if (doc && doc.careerData) {
+      console.log(`Cloud Sync: Successfully loaded cloud document for ${cleanEmail}`);
       return {
         userProfile: {
-          id: doc.data.userId || `user_${cleanEmail}`,
-          email: doc.data.email || cleanEmail,
-          name: doc.data.name || cleanEmail.split('@')[0],
-          isGoogle: doc.data.isGoogle ?? cleanEmail.includes('@gmail.com'),
-          geminiApiKey: doc.data.geminiApiKey || ''
+          id: doc.userId || `user_${cleanEmail}`,
+          email: doc.email || cleanEmail,
+          name: doc.name || cleanEmail.split('@')[0],
+          isGoogle: doc.isGoogle ?? cleanEmail.includes('@gmail.com'),
+          geminiApiKey: doc.geminiApiKey || ''
         },
-        careerData: doc.data.careerData || null,
-        updatedAt: doc.data.updatedAt || doc.updatedAt || Date.now(),
-        cloudObjectId: objectId
+        careerData: doc.careerData,
+        updatedAt: doc.updatedAt || Date.now()
       };
     }
-    return null;
   } catch (err) {
-    console.error("Cloud Sync Fetch Error:", err);
-    return null;
+    console.warn("Cloud Sync Fetch Warning:", err.message);
   }
+
+  return null;
 };
 
 /**
- * Save / Update user profile & career data in the cloud
+ * Save user data to Cloud DB (Firebase REST)
  */
-export const saveUserCloudData = async (email, { userProfile, careerData }) => {
+export const saveUserCloudData = async (email, { userProfile, careerData }, customDbUrl = null) => {
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return false;
 
+  const key = emailToKey(cleanEmail);
+  const dbUrl = customDbUrl || getStoredCloudDbUrl();
+
+  const payload = {
+    userId: userProfile?.id || `user_${cleanEmail}`,
+    email: cleanEmail,
+    name: userProfile?.name || cleanEmail.split('@')[0],
+    isGoogle: userProfile?.isGoogle ?? cleanEmail.includes('@gmail.com'),
+    geminiApiKey: userProfile?.geminiApiKey || '',
+    careerData: careerData || null,
+    updatedAt: Date.now()
+  };
+
   try {
-    const registry = await getMasterRegistry();
-    let objectId = registry[cleanEmail];
-
-    const payload = {
-      name: `career_user_${cleanEmail}`,
-      data: {
-        userId: userProfile?.id || `user_${cleanEmail}`,
-        email: cleanEmail,
-        name: userProfile?.name || cleanEmail.split('@')[0],
-        isGoogle: userProfile?.isGoogle ?? cleanEmail.includes('@gmail.com'),
-        geminiApiKey: userProfile?.geminiApiKey || '',
-        careerData: careerData || null,
-        updatedAt: Date.now()
-      }
-    };
-
-    if (objectId) {
-      // Update existing object
-      const res = await fetch(`${API_BASE}/${objectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        console.log(`Cloud Sync: Saved updates to cloud object ${objectId} for ${cleanEmail}`);
-        return true;
-      }
-    }
-
-    // If no object exists or update failed, create a new cloud object
-    const createRes = await fetch(API_BASE, {
-      method: 'POST',
+    const endpoint = `${dbUrl}/career_users/${key}.json`;
+    const res = await fetch(endpoint, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    if (createRes.ok) {
-      const created = await createRes.json();
-      objectId = created.id;
-      registry[cleanEmail] = objectId;
-      await updateMasterRegistry(registry);
-      console.log(`Cloud Sync: Registered new cloud object ${objectId} for ${cleanEmail}`);
+    if (res.ok) {
+      console.log(`Cloud Sync: Saved successfully to cloud for ${cleanEmail}`);
       return true;
     }
-
-    return false;
   } catch (err) {
-    console.error("Cloud Sync Save Error:", err);
-    return false;
+    console.warn("Cloud Sync Save Warning:", err.message);
   }
-};
 
-/**
- * Test connectivity to cloud sync server
- */
-export const testCloudConnection = async () => {
-  try {
-    const start = performance.now();
-    const res = await fetch(`${API_BASE}/${MASTER_REGISTRY_ID}`);
-    const duration = Math.round(performance.now() - start);
-    return { ok: res.ok, latency: duration };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
+  return false;
 };
 
 /**

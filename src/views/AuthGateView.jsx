@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe } from 'lucide-react';
+import { SyncDeviceModal } from '../components/Modals/SyncDeviceModal';
+import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe, Smartphone } from 'lucide-react';
 
 export const AuthGateView = () => {
   const { loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [isGoogleCustomModal, setIsGoogleCustomModal] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [googleEmailInput, setGoogleEmailInput] = useState('');
   
   const [name, setName] = useState('');
@@ -232,10 +234,26 @@ export const AuthGateView = () => {
               </button>
             </form>
 
+            <div className="pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-900 border border-cyan-500/30 text-cyan-400 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Sincronizar con iPad, Móvil o PC (1 Clic)</span>
+              </button>
+            </div>
+
           </div>
         </div>
 
       </main>
+
+      <SyncDeviceModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+      />
 
       {/* Gmail Input Modal */}
       {isGoogleCustomModal && (

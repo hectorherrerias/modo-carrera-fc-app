@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { FootballPitch, FORMATION_PRESETS } from '../FootballPitch';
-import { Settings, UserCheck, X, Plus, Check, Swords, Shield, Sliders, ArrowUpDown } from 'lucide-react';
+import { Settings, UserCheck, X, Plus, Check, Swords, Shield, Sliders, ArrowUpDown, Link2, Copy, RefreshCw } from 'lucide-react';
 
 export const TacticsTab = () => {
-  const { activeSeason, currentPlayers, updatePhaseTactics } = useApp();
+  const { activeSeason, currentPlayers, updatePhaseTactics, replicateSquadAcrossPhases } = useApp();
   
   // Tactical Phase State: 'ofensive' | 'defensive'
   const [activePhase, setActivePhase] = useState('ofensive');
+  const [syncBothSquads, setSyncBothSquads] = useState(true);
+  const [syncToast, setSyncToast] = useState('');
+
   const [selectedSlotIndex, setSelectedSlotIndex] = useState(null);
   const [selectedSlotData, setSelectedSlotData] = useState(null);
   const [isManagingSubstitutes, setIsManagingSubstitutes] = useState(false);
@@ -39,16 +42,21 @@ export const TacticsTab = () => {
   const ofensiveStyles = ["Posesión", "Contraataque", "Balón Largo", "Pase Rápido", "Equilibrado"];
   const defensiveStyles = ["Presión tras Pérdida", "Presión Alta", "Bloque Medio", "Bloque Bajo / Repliegue", "Presión Constante"];
 
+  const showToast = (msg) => {
+    setSyncToast(msg);
+    setTimeout(() => setSyncToast(''), 3000);
+  };
+
   const handleFormationChange = (newFormation) => {
-    updatePhaseTactics(activePhase, { formation: newFormation });
+    updatePhaseTactics(activePhase, { formation: newFormation }, false);
   };
 
   const handleStyleChange = (newStyle) => {
-    updatePhaseTactics(activePhase, { style: newStyle });
+    updatePhaseTactics(activePhase, { style: newStyle }, false);
   };
 
   const handleSliderChange = (field, val) => {
-    updatePhaseTactics(activePhase, { [field]: Number(val) });
+    updatePhaseTactics(activePhase, { [field]: Number(val) }, false);
   };
 
   const handleSlotClick = (index, slot, assignedItem, isSubMode = false) => {
@@ -66,7 +74,7 @@ export const TacticsTab = () => {
       customPos: coords
     };
 
-    updatePhaseTactics(activePhase, { startingXI: newStartingXI });
+    updatePhaseTactics(activePhase, { startingXI: newStartingXI }, false);
   };
 
   const handleResetCoords = () => {
@@ -75,7 +83,7 @@ export const TacticsTab = () => {
       return rest;
     });
 
-    updatePhaseTactics(activePhase, { startingXI: newStartingXI });
+    updatePhaseTactics(activePhase, { startingXI: newStartingXI }, false);
   };
 
   const handleSwapStarterSub = (slotIndex, subPlayerName) => {
@@ -92,7 +100,10 @@ export const TacticsTab = () => {
       substitutes: newSubs
     };
 
-    updatePhaseTactics(activePhase, { startingXI: newStartingXI });
+    updatePhaseTactics(activePhase, { startingXI: newStartingXI }, syncBothSquads);
+    if (syncBothSquads) {
+      showToast("✓ Cambio reflejado en fase ofensiva y defensiva");
+    }
   };
 
   const handleAssignStarter = (playerName) => {
@@ -111,7 +122,11 @@ export const TacticsTab = () => {
       playerName: playerName
     };
 
-    updatePhaseTactics(activePhase, { startingXI: newStartingXI });
+    updatePhaseTactics(activePhase, { startingXI: newStartingXI }, syncBothSquads);
+    if (syncBothSquads) {
+      showToast("✓ Titular sincronizado en fase ofensiva y defensiva");
+    }
+
     setSelectedSlotIndex(null);
     setSelectedSlotData(null);
   };
@@ -134,8 +149,17 @@ export const TacticsTab = () => {
       substitutes: currentSubs
     };
 
-    updatePhaseTactics(activePhase, { startingXI: newStartingXI });
+    updatePhaseTactics(activePhase, { startingXI: newStartingXI }, syncBothSquads);
+    if (syncBothSquads) {
+      showToast("✓ Suplentes sincronizados en ambas fases");
+    }
+
     setSelectedSlotData({ ...selectedSlotData, assignedItem: newStartingXI[selectedSlotIndex] });
+  };
+
+  const handleManualReplicate = () => {
+    replicateSquadAcrossPhases(activePhase);
+    showToast(`✓ Titulares y suplentes copiados a la fase ${isOfensive ? 'defensiva' : 'ofensiva'}`);
   };
 
   return (
@@ -174,6 +198,40 @@ export const TacticsTab = () => {
             {isOfensive ? 'Ataque y Construcción' : 'Defensa y Bloque'}
           </strong>
         </div>
+      </div>
+
+      {/* Auto-Replication & Squad Sync Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950/90 border border-slate-800/90 rounded-2xl px-4 py-3 text-xs shadow-md">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSyncBothSquads(!syncBothSquads)}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
+              syncBothSquads 
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm' 
+                : 'bg-slate-900 text-slate-400 border border-slate-800'
+            }`}
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            <span>Sincronización Automática Ofensiva ↔ Defensiva: <strong className={syncBothSquads ? 'text-emerald-300 underline' : 'text-slate-400'}>{syncBothSquads ? 'ACTIVA' : 'DESACTIVADA'}</strong></span>
+          </button>
+
+          {syncToast && (
+            <span className="text-[11px] text-emerald-400 font-bold animate-fade-in flex items-center space-x-1 bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+              <Check className="w-3.5 h-3.5" />
+              <span>{syncToast}</span>
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleManualReplicate}
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white font-bold rounded-xl border border-slate-700 transition-all text-xs shrink-0"
+        >
+          <Copy className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Copiar 11 y Suplentes a {isOfensive ? 'Defensa' : 'Ataque'}</span>
+        </button>
       </div>
 
       {/* Phase Settings & Sliders Header */}

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
+import { fetchUserCloudData, saveUserCloudData, parseDeviceSyncPayload } from '../utils/cloudSyncService';
 
 const AuthContext = createContext();
 
@@ -24,6 +24,20 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [isCloudLoading, setIsCloudLoading] = useState(false);
+
+  // Instant Sync Payload Parser from window.location.hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.includes('#sync=')) {
+      const parsed = parseDeviceSyncPayload(window.location.hash);
+      if (parsed && parsed.user) {
+        setCurrentUser(parsed.user);
+        setUsers(prev => {
+          const filtered = prev.filter(u => u.email?.toLowerCase() !== parsed.user.email?.toLowerCase());
+          return [...filtered, parsed.user];
+        });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));

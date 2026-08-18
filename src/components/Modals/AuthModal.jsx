@@ -3,9 +3,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { validateGeminiApiKey } from '../../utils/geminiService';
 import { exportDataToJson } from '../../utils/cloudSyncService';
+import { SyncDeviceModal } from './SyncDeviceModal';
 import { 
   UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, 
-  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2 
+  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, Smartphone 
 } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose }) => {
@@ -13,6 +14,7 @@ export const AuthModal = ({ isOpen, onClose }) => {
   const { data, setData, syncStatus, lastSyncedAt, forceSyncCloud } = useApp();
   
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -246,6 +248,16 @@ export const AuthModal = ({ isOpen, onClose }) => {
                 </form>
               </div>
 
+              {/* Sync iPad / Mobile / PC Shortcut */}
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Sincronizar con iPad, Móvil o PC (1 Clic)</span>
+              </button>
+
               {/* Data Backup & Restore */}
               <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
                 <span className="text-xs font-bold text-slate-400 block">Copia de Seguridad y Archivo Local</span>
@@ -349,6 +361,11 @@ export const AuthModal = ({ isOpen, onClose }) => {
         </div>
 
       </div>
+
+      <SyncDeviceModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { INITIAL_DATA } from '../mockData';
-import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
+import { fetchUserCloudData, saveUserCloudData, parseDeviceSyncPayload, setStoredCloudDbUrl } from '../utils/cloudSyncService';
 
 const AppContext = createContext();
 
@@ -50,6 +50,20 @@ export const AppProvider = ({ children }) => {
       newsArticles: []
     };
   });
+
+  // Instant Sync Payload Parser from window.location.hash
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.includes('#sync=')) {
+      const parsedPayload = parseDeviceSyncPayload(window.location.hash);
+      if (parsedPayload && parsedPayload.careerData) {
+        setData(parsedPayload.careerData);
+        if (parsedPayload.cloudDbUrl) {
+          setStoredCloudDbUrl(parsedPayload.cloudDbUrl);
+        }
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, []);
 
   // Re-load data whenever currentUser changes: Check Cloud First!
   useEffect(() => {
@@ -514,19 +528,84 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
-  const updatePhaseTactics = (phase, phaseData) => {
+  const updatePhaseTactics = (phase, phaseData, syncBothSquads = true) => {
     if (!activeSeasonId) return;
-    const key = phase === 'ofensive' ? 'tacticsOfensive' : 'tacticsDefensive';
+    const currentKey = phase === 'ofensive' ? 'tacticsOfensive' : 'tacticsDefensive';
+    const otherKey = phase === 'ofensive' ? 'tacticsDefensive' : 'tacticsOfensive';
     
     setData(prev => ({
       ...prev,
       seasons: prev.seasons.map(s => {
         if (s.id === activeSeasonId) {
+          const currentPhaseTactics = s[currentKey] || {};
+          const otherPhaseTactics = s[otherKey] || {};
+
+          const updatedCurrentPhase = {
+            ...currentPhaseTactics,
+            ...phaseData
+          };
+
+          let updatedOtherPhase = { ...otherPhaseTactics };
+
+          // If startingXI (starters/subs) changed and syncBothSquads is true, replicate player assignments to other phase
+          if (phaseData.startingXI && syncBothSquads) {
+            const currentXI = phaseData.startingXI;
+            const otherXI = otherPhaseTactics.startingXI || [];
+
+            const syncedOtherXI = currentXI.map((slot, idx) => {
+              const existingOtherSlot = otherXI[idx] || {};
+              return {
+                ...existingOtherSlot,
+                playerName: slot.playerName,
+                substitutes: slot.substitutes ? [...slot.substitutes] : []
+              };
+            });
+
+            updatedOtherPhase = {
+              ...updatedOtherPhase,
+              startingXI: syncedOtherXI
+            };
+          }
+
           return {
             ...s,
-            [key]: {
-              ...(s[key] || {}),
-              ...phaseData
+            [currentKey]: updatedCurrentPhase,
+            ...(syncBothSquads && phaseData.startingXI ? { [otherKey]: updatedOtherPhase } : {})
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const replicateSquadAcrossPhases = (sourcePhase = 'ofensive') => {
+    if (!activeSeasonId) return;
+    const fromKey = sourcePhase === 'ofensive' ? 'tacticsOfensive' : 'tacticsDefensive';
+    const toKey = sourcePhase === 'ofensive' ? 'tacticsDefensive' : 'tacticsOfensive';
+
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          const fromTactics = s[fromKey] || {};
+          const toTactics = s[toKey] || {};
+          const fromXI = fromTactics.startingXI || [];
+          const toXI = toTactics.startingXI || [];
+
+          const syncedXI = fromXI.map((slot, idx) => {
+            const destSlot = toXI[idx] || {};
+            return {
+              ...destSlot,
+              playerName: slot.playerName,
+              substitutes: slot.substitutes ? [...slot.substitutes] : []
+            };
+          });
+
+          return {
+            ...s,
+            [toKey]: {
+              ...toTactics,
+              startingXI: syncedXI
             }
           };
         }
@@ -841,6 +920,7 @@ export const AppProvider = ({ children }) => {
       updatePlayerStats,
       deletePlayer,
       updatePhaseTactics,
+      replicateSquadAcrossPhases,
       addTransfer,
       addYouthProspect,
       updateYouthProspect,
