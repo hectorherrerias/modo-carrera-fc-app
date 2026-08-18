@@ -220,6 +220,10 @@ export const FootballPitch = ({
   const baseSlots = FORMATION_PRESETS[formationKey] || FORMATION_PRESETS["4-2-3-1 (Estrecho)"];
   const [activeDraggingIdx, setActiveDraggingIdx] = useState(null);
 
+  // Drag tracking refs to prevent triggering onClick modal when dragging!
+  const touchStartPosRef = useRef({ x: 0, y: 0 });
+  const hasDraggedRef = useRef(false);
+
   // Prevent Mobile Touch Vertical Page Scroll during active player node dragging!
   useEffect(() => {
     const pitchElement = pitchRef.current;
@@ -255,21 +259,29 @@ export const FootballPitch = ({
   };
 
   const handlePointerDown = (e, index) => {
-    if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     setActiveDraggingIdx(index);
+
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+
+    touchStartPosRef.current = { x: clientX, y: clientY };
+    hasDraggedRef.current = false;
   };
 
   const handlePointerMove = (e) => {
     if (activeDraggingIdx === null || !pitchRef.current || !onUpdatePositionCoords) return;
     if (e.cancelable) e.preventDefault();
-    
+
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+
+    const dist = Math.hypot(clientX - touchStartPosRef.current.x, clientY - touchStartPosRef.current.y);
+    if (dist > 6) {
+      hasDraggedRef.current = true;
+    }
+
     const rect = pitchRef.current.getBoundingClientRect();
-    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
-
-    if (clientX === undefined || clientY === undefined) return;
-
     const relX = ((clientX - rect.left) / rect.width) * 100;
     const relY = ((rect.bottom - clientY) / rect.height) * 100;
 
@@ -280,7 +292,10 @@ export const FootballPitch = ({
   };
 
   const handlePointerUp = () => {
-    setActiveDraggingIdx(null);
+    // Keep hasDraggedRef flag intact for onClick check, reset active dragging index after brief timeout
+    setTimeout(() => {
+      setActiveDraggingIdx(null);
+    }, 50);
   };
 
   const isOfensive = phase === 'ofensive';
@@ -438,7 +453,14 @@ export const FootballPitch = ({
                   <div 
                     onPointerDown={(e) => handlePointerDown(e, index)}
                     onTouchStart={(e) => handlePointerDown(e, index)}
-                    onClick={() => onSelectSlot && onSelectSlot(index, baseSlot, assignedItem)}
+                    onClick={(e) => {
+                      if (hasDraggedRef.current) {
+                        // User was dragging node position, DO NOT open change player modal!
+                        e.stopPropagation();
+                        return;
+                      }
+                      if (onSelectSlot) onSelectSlot(index, baseSlot, assignedItem);
+                    }}
                     style={{ touchAction: 'none' }}
                     className={`relative flex flex-col items-center cursor-grab active:cursor-grabbing transition-transform touch-none ${
                       activeDraggingIdx === index ? 'scale-110 z-30 shadow-2xl' : 'hover:scale-105'
