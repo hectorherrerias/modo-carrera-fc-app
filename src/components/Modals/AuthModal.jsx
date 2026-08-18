@@ -4,10 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { validateGeminiApiKey } from '../../utils/geminiService';
 import { exportDataToJson } from '../../utils/cloudSyncService';
-import { SyncDeviceModal } from './SyncDeviceModal';
 import { 
   UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, 
-  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, Smartphone, LogOut 
+  Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, LogOut 
 } from 'lucide-react';
 
 export const AuthModal = ({ isOpen, onClose }) => {
@@ -15,7 +14,6 @@ export const AuthModal = ({ isOpen, onClose }) => {
   const { data, setData, syncStatus, lastSyncedAt, forceSyncCloud } = useApp();
   
   const [isSignUp, setIsSignUp] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -130,7 +128,7 @@ export const AuthModal = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950 shrink-0">
           <div className="flex items-center space-x-2">
             <UserCheck className="w-5 h-5 text-emerald-400" />
-            <h3 className="font-extrabold text-base text-white">Mi Cuenta, Nube & Gemini IA</h3>
+            <h3 className="font-extrabold text-base text-white">Mi Cuenta & Gemini IA</h3>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -202,13 +200,13 @@ export const AuthModal = ({ isOpen, onClose }) => {
                     <Cloud className={`w-4 h-4 ${syncStatus === 'synced' ? 'text-emerald-400' : (syncStatus === 'syncing' ? 'text-amber-400 animate-spin' : 'text-slate-500')}`} />
                     <div>
                       <span className="font-bold text-slate-300">
-                        {syncStatus === 'synced' && "Sincronizado en la Nube"}
-                        {syncStatus === 'syncing' && "Sincronizando con tu cuenta..."}
-                        {syncStatus === 'offline' && "Guardado Localmente"}
+                        {syncStatus === 'synced' && "Sincronizado en tu Cuenta"}
+                        {syncStatus === 'syncing' && "Guardando cambios en tu cuenta..."}
+                        {syncStatus === 'offline' && "Guardado Local"}
                         {syncStatus === 'error' && "Error de Conexión"}
                       </span>
                       <p className="text-[10px] text-slate-500">
-                        Última sync: {new Date(lastSyncedAt).toLocaleTimeString('es-ES')}
+                        Última sincronización: {new Date(lastSyncedAt).toLocaleTimeString('es-ES')}
                       </p>
                     </div>
                   </div>
@@ -279,16 +277,6 @@ export const AuthModal = ({ isOpen, onClose }) => {
                   )}
                 </form>
               </div>
-
-              {/* Sync iPad / Mobile / PC Shortcut */}
-              <button
-                type="button"
-                onClick={() => setIsSyncModalOpen(true)}
-                className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition-all cursor-pointer"
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>Sincronizar con iPad, Móvil o PC (1 Clic)</span>
-              </button>
 
               {/* Data Backup & Restore */}
               <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
@@ -396,7 +384,7 @@ export const AuthModal = ({ isOpen, onClose }) => {
                   type="submit"
                   className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all mt-2"
                 >
-                  {isSignUp ? 'Registrar Mi Cuenta en la Nube' : 'Acceder al Juego'}
+                  {isSignUp ? 'Registrar Mi Cuenta' : 'Acceder al Juego'}
                 </button>
               </form>
             </div>
@@ -405,11 +393,6 @@ export const AuthModal = ({ isOpen, onClose }) => {
         </div>
 
       </div>
-
-      <SyncDeviceModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-      />
     </div>
   );
 

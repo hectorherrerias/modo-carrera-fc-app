@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Shield, Calendar, RefreshCw, ArrowLeft, Palette, User, Key, Cloud, Sparkles, Smartphone } from 'lucide-react';
+import { Trophy, Shield, Calendar, RefreshCw, ArrowLeft, Palette, User, Key, Cloud, Sparkles } from 'lucide-react';
 import { ClubLogo } from './ClubLogo';
 import { AuthModal } from './Modals/AuthModal';
-import { SyncDeviceModal } from './Modals/SyncDeviceModal';
 
 export const Navbar = ({ currentView, setView }) => {
   const { activeClub, activeSeason, resetToDefaultData, syncStatus, forceSyncCloud } = useApp();
@@ -13,7 +12,6 @@ export const Navbar = ({ currentView, setView }) => {
   const { currentUser } = useAuth();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
 
   const handleReset = () => {
@@ -88,19 +86,9 @@ export const Navbar = ({ currentView, setView }) => {
           )}
         </div>
 
-        {/* Right Actions: Sync Devices, Cloud Sync Status, Theme, User Auth Profile & Controls */}
+        {/* Right Actions: Cloud Sync Status, Theme, User Auth Profile & Controls */}
         <div className="flex items-center space-x-2">
           
-          {/* Sync Devices Button (iPad, Mobile, PC) */}
-          <button
-            onClick={() => setIsSyncModalOpen(true)}
-            title="Sincronizar entre iPad, Móvil y PC"
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/60 hover:bg-cyan-950 text-cyan-400 text-xs font-bold transition-all shadow-md"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Dispositivos</span>
-          </button>
-
           {/* Cloud Sync Status Indicator */}
           {currentUser && (
             <button
@@ -195,11 +183,6 @@ export const Navbar = ({ currentView, setView }) => {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-      />
-
-      <SyncDeviceModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
       />
     </header>
   );

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { INITIAL_DATA } from '../mockData';
-import { fetchUserCloudData, saveUserCloudData, parseDeviceSyncPayload, setStoredCloudDbUrl } from '../utils/cloudSyncService';
+import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
 
 const AppContext = createContext();
 
@@ -51,21 +51,7 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-  // Instant Sync Payload Parser from window.location.hash
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash.includes('#sync=')) {
-      const parsedPayload = parseDeviceSyncPayload(window.location.hash);
-      if (parsedPayload && parsedPayload.careerData) {
-        setData(parsedPayload.careerData);
-        if (parsedPayload.cloudDbUrl) {
-          setStoredCloudDbUrl(parsedPayload.cloudDbUrl);
-        }
-        window.history.replaceState(null, '', window.location.pathname);
-      }
-    }
-  }, []);
-
-  // Re-load data whenever currentUser changes: Check Cloud First!
+  // Re-load data whenever currentUser changes: Check Database First!
   useEffect(() => {
     if (!currentUser) {
       initialCloudLoadDoneRef.current = false;

@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { SyncDeviceModal } from '../components/Modals/SyncDeviceModal';
-import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe, Smartphone } from 'lucide-react';
+import { Trophy, Sparkles, ShieldCheck, ArrowRight, Bot, Lock, Key, Cloud, Globe } from 'lucide-react';
 
 export const AuthGateView = () => {
   const { loginWithRealGoogleAccount, loginWithGoogle, loginUser, registerUser, isCloudLoading } = useAuth();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [isGoogleCustomModal, setIsGoogleCustomModal] = useState(false);
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [googleEmailInput, setGoogleEmailInput] = useState('');
   
   const [name, setName] = useState('');
@@ -86,7 +84,7 @@ export const AuthGateView = () => {
 
         <div className="flex items-center space-x-2 text-xs text-emerald-400 font-semibold bg-emerald-950/60 px-3 py-1.5 rounded-full border border-emerald-500/30">
           <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Sincronización en la Nube Multi-Dispositivo</span>
+          <span>Sincronización Automática por Usuario</span>
         </div>
       </header>
 
@@ -97,18 +95,18 @@ export const AuthGateView = () => {
         <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Gestor Profesional Multi-Dispositivo & Google Gemini IA</span>
+            <span>Gestor Profesional de Carrera & Asistente Google Gemini IA</span>
           </div>
 
           <h2 className="text-4xl sm:text-6xl font-black text-white tracking-tight font-outfit leading-tight">
             Tu Modo Carrera <br />
             <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              Sincronizado en Todos tus Dispositivos
+              Sincronizado con tu Cuenta
             </span>
           </h2>
 
           <p className="text-slate-400 text-base sm:text-lg max-w-2xl leading-relaxed">
-            Inicia sesión con tu cuenta de Google / Gmail desde tu ordenador, móvil o tablet. Tus clubes, tácticas, plantilla, contexto de temporada y tu API Key de Gemini se sincronizan automáticamente para que juegues donde quieras sin perder nada.
+            Inicia sesión con tu cuenta de Google / Gmail desde cualquier dispositivo. Tus clubes, tácticas, plantilla, contexto de temporada y tu clave de Gemini están siempre guardados en tu cuenta listos para jugar.
           </p>
 
           {/* Value Props */}
@@ -116,8 +114,8 @@ export const AuthGateView = () => {
             <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-start space-x-3">
               <Globe className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-bold text-sm text-white">Multi-Dispositivo con Gmail</h4>
-                <p className="text-xs text-slate-400">Accede desde cualquier dispositivo con tu correo y tus datos estarán listos.</p>
+                <h4 className="font-bold text-sm text-white">Sincronización por Usuario</h4>
+                <p className="text-xs text-slate-400">Entra con el mismo usuario en cualquier dispositivo para ver tu partida al instante.</p>
               </div>
             </div>
 
@@ -140,7 +138,7 @@ export const AuthGateView = () => {
                 {isSignUp ? 'Crear Tu Cuenta' : 'Acceder al Juego'}
               </h3>
               <p className="text-xs text-slate-400">
-                Selecciona cómo deseas identificarte
+                Inicia sesión para sincronizar tu partida
               </p>
             </div>
 
@@ -244,26 +242,10 @@ export const AuthGateView = () => {
               </button>
             </form>
 
-            <div className="pt-2 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsSyncModalOpen(true)}
-                className="w-full py-2.5 px-3 bg-slate-950 hover:bg-slate-900 border border-cyan-500/30 text-cyan-400 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all"
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>Sincronizar con iPad, Móvil o PC (1 Clic)</span>
-              </button>
-            </div>
-
           </div>
         </div>
 
       </main>
-
-      <SyncDeviceModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-      />
 
       {/* Gmail Input Modal */}
       {isGoogleCustomModal && (
@@ -275,7 +257,7 @@ export const AuthGateView = () => {
             </div>
 
             <p className="text-xs text-slate-400">
-              Introduce tu correo de Gmail. Se conectará a la nube para cargar tus clubes, tu contexto de temporada y tu clave de Gemini en este dispositivo:
+              Introduce tu correo de Gmail para conectar y cargar tus clubes y partidas de tu cuenta:
             </p>
 
             <form onSubmit={handleGoogleSubmit} className="space-y-4">
@@ -296,7 +278,7 @@ export const AuthGateView = () => {
                 disabled={isSubmitting}
                 className="w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow transition-all disabled:opacity-50"
               >
-                {isSubmitting ? 'Cargando datos de la nube...' : 'Continuar con Gmail'}
+                {isSubmitting ? 'Cargando datos...' : 'Continuar con Gmail'}
               </button>
             </form>
           </div>
@@ -305,7 +287,7 @@ export const AuthGateView = () => {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 z-10">
-        <p>© {new Date().getFullYear()} Career Mode Tracker • Sincronización en la Nube y Asistente Gemini IA</p>
+        <p>© {new Date().getFullYear()} Career Mode Tracker • Sincronización Automática por Usuario y Google Gemini IA</p>
       </footer>
 
     </div>
