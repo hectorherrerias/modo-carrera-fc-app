@@ -1,10 +1,6 @@
 /**
- * Cloud Sync Service V3 (Multi-Device Guarantee)
- * Enables guaranteed synchronization between PC, iPad, iPhone, Android, and tablets.
- * Supports:
- * 1. 1-Click Device Sync Links & QR Payloads (Instant local-to-remote zero-config pairing)
- * 2. Direct Firebase Realtime Database REST Sync (Free, unmetered cloud sync)
- * 3. JSON Backups (Import / Export)
+ * Cloud Sync Service V4 (Database Persistence Guarantee)
+ * Enables permanent database persistence across PC, iPad, iPhone, and Android.
  */
 
 const CLOUD_DB_KEY = 'career_tracker_cloud_db_url_v1';
@@ -19,9 +15,6 @@ const emailToKey = (email) => {
   return clean.replace(/[^a-z0-9]/gi, '_');
 };
 
-/**
- * Get or Set custom Firebase Realtime Database URL
- */
 export const getStoredCloudDbUrl = () => {
   return localStorage.getItem(CLOUD_DB_KEY) || DEFAULT_FIREBASE_DB;
 };
@@ -85,57 +78,84 @@ export const parseDeviceSyncPayload = (rawString) => {
 };
 
 /**
- * Fetch user data from Cloud DB (Firebase REST)
+ * Fetch user data from Server / Cloud DB
  */
 export const fetchUserCloudData = async (email, customDbUrl = null) => {
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return null;
 
   const key = emailToKey(cleanEmail);
-  const dbUrl = customDbUrl || getStoredCloudDbUrl();
 
+  // 1. First priority: Built-in Server Database (/api/cloud-db/users/:key.json)
   try {
-    const endpoint = `${dbUrl}/career_users/${key}.json`;
-    const res = await fetch(endpoint, {
+    const serverEndpoint = `/api/cloud-db/users/${key}.json`;
+    const res = await fetch(serverEndpoint, {
       headers: { 'Accept': 'application/json' }
     });
 
-    if (!res.ok) {
-      console.log(`Cloud Sync fetch returned status ${res.status} from ${dbUrl}`);
-      return null;
-    }
-
-    const doc = await res.json();
-    if (doc && doc.careerData) {
-      console.log(`Cloud Sync: Successfully loaded cloud document for ${cleanEmail}`);
-      return {
-        userProfile: {
-          id: doc.userId || `user_${cleanEmail}`,
-          email: doc.email || cleanEmail,
-          name: doc.name || cleanEmail.split('@')[0],
-          isGoogle: doc.isGoogle ?? cleanEmail.includes('@gmail.com'),
-          geminiApiKey: doc.geminiApiKey || ''
-        },
-        careerData: doc.careerData,
-        updatedAt: doc.updatedAt || Date.now()
-      };
+    if (res.ok) {
+      const doc = await res.json();
+      if (doc && doc.careerData) {
+        console.log(`[DB] Successfully loaded user career data from Database for ${cleanEmail}`);
+        return {
+          userProfile: {
+            id: doc.userId || `user_${cleanEmail}`,
+            email: doc.email || cleanEmail,
+            name: doc.name || cleanEmail.split('@')[0],
+            isGoogle: doc.isGoogle ?? cleanEmail.includes('@gmail.com'),
+            geminiApiKey: doc.geminiApiKey || ''
+          },
+          careerData: doc.careerData,
+          updatedAt: doc.updatedAt || Date.now()
+        };
+      }
     }
   } catch (err) {
-    console.warn("Cloud Sync Fetch Warning:", err.message);
+    // If not running with Vite server API (e.g. static CDN), continue to remote cloud DB
+  }
+
+  // 2. Secondary priority: Remote Cloud DB (e.g. Firebase / Supabase)
+  const dbUrl = customDbUrl || getStoredCloudDbUrl();
+  if (dbUrl && !dbUrl.includes('modo-carrera-fc-sync-default-rtdb.firebaseio.com')) {
+    try {
+      const endpoint = `${dbUrl}/career_users/${key}.json`;
+      const res = await fetch(endpoint, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (res.ok) {
+        const doc = await res.json();
+        if (doc && doc.careerData) {
+          console.log(`[Cloud DB] Loaded from Remote Cloud for ${cleanEmail}`);
+          return {
+            userProfile: {
+              id: doc.userId || `user_${cleanEmail}`,
+              email: doc.email || cleanEmail,
+              name: doc.name || cleanEmail.split('@')[0],
+              isGoogle: doc.isGoogle ?? cleanEmail.includes('@gmail.com'),
+              geminiApiKey: doc.geminiApiKey || ''
+            },
+            careerData: doc.careerData,
+            updatedAt: doc.updatedAt || Date.now()
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[Cloud DB] Remote Fetch error:", err.message);
+    }
   }
 
   return null;
 };
 
 /**
- * Save user data to Cloud DB (Firebase REST)
+ * Save user data to Server / Cloud DB
  */
 export const saveUserCloudData = async (email, { userProfile, careerData }, customDbUrl = null) => {
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return false;
 
   const key = emailToKey(cleanEmail);
-  const dbUrl = customDbUrl || getStoredCloudDbUrl();
 
   const payload = {
     userId: userProfile?.id || `user_${cleanEmail}`,
@@ -147,23 +167,45 @@ export const saveUserCloudData = async (email, { userProfile, careerData }, cust
     updatedAt: Date.now()
   };
 
+  let savedToServer = false;
+
+  // 1. Save to Server Database (/api/cloud-db/users/:key.json)
   try {
-    const endpoint = `${dbUrl}/career_users/${key}.json`;
-    const res = await fetch(endpoint, {
+    const serverEndpoint = `/api/cloud-db/users/${key}.json`;
+    const res = await fetch(serverEndpoint, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
     if (res.ok) {
-      console.log(`Cloud Sync: Saved successfully to cloud for ${cleanEmail}`);
-      return true;
+      console.log(`[DB] Successfully saved career state to Database for ${cleanEmail}`);
+      savedToServer = true;
     }
   } catch (err) {
-    console.warn("Cloud Sync Save Warning:", err.message);
+    // Non-fatal if on static host
   }
 
-  return false;
+  // 2. Save to Remote Cloud DB (e.g. Firebase)
+  const dbUrl = customDbUrl || getStoredCloudDbUrl();
+  if (dbUrl && !dbUrl.includes('modo-carrera-fc-sync-default-rtdb.firebaseio.com')) {
+    try {
+      const endpoint = `${dbUrl}/career_users/${key}.json`;
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        return true;
+      }
+    } catch (err) {
+      console.warn("[Cloud DB] Remote Save error:", err.message);
+    }
+  }
+
+  return savedToServer;
 };
 
 /**
