@@ -1,0 +1,677 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { INITIAL_DATA } from '../mockData';
+
+const AppContext = createContext();
+
+export const AppProvider = ({ children }) => {
+  const { currentUser } = useAuth();
+  
+  const userStorageKey = currentUser 
+    ? `career_tracker_data_${currentUser.id}` 
+    : 'career_tracker_data_guest';
+
+  const [data, setData] = useState(() => {
+    const saved = localStorage.getItem(userStorageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error loading saved data:", e);
+      }
+    }
+    return {
+      ...INITIAL_DATA,
+      clubs: INITIAL_DATA.clubs.map(c => ({
+        ...c,
+        managerName: currentUser ? currentUser.name : c.managerName
+      })),
+      pressConferences: [],
+      newsArticles: []
+    };
+  });
+
+  // Re-load data whenever currentUser changes!
+  useEffect(() => {
+    const saved = localStorage.getItem(userStorageKey);
+    if (saved) {
+      try {
+        setData(JSON.parse(saved));
+        return;
+      } catch (e) {}
+    }
+
+    // Default data for new user
+    setData({
+      ...INITIAL_DATA,
+      clubs: [
+        {
+          id: "c1_" + Date.now(),
+          name: "CD Leganés",
+          stadium: "Estadio Municipal de Butarque",
+          logo: "⚽",
+          color: "#0055A5",
+          managerName: currentUser ? currentUser.name : "Mánager",
+          globalWinRate: 50.0,
+          totalTrophies: 0
+        }
+      ],
+      seasons: [
+        {
+          id: "s1_" + Date.now(),
+          clubId: "c1_" + Date.now(),
+          year: "2024/25",
+          budget: 15000000,
+          matchResults: { wins: 0, draws: 0, losses: 0 },
+          tacticsOfensive: {
+            formation: "4-2-3-1 (Estrecho)",
+            style: "Posesión",
+            width: 65,
+            depth: 70,
+            playersInBox: 6,
+            startingXI: []
+          },
+          tacticsDefensive: {
+            formation: "4-4-2 (Plano)",
+            style: "Presión tras Pérdida",
+            width: 45,
+            depth: 40,
+            startingXI: []
+          },
+          competitions: [
+            { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
+          ],
+          awards: { mvp: "Por determinar", topScorer: "Por determinar", topAssister: "Por determinar" }
+        }
+      ],
+      players: [],
+      transfers: [],
+      youthAcademy: [],
+      pressConferences: [],
+      newsArticles: []
+    });
+  }, [currentUser?.id]);
+
+  // Save to LocalStorage strictly scoped by userStorageKey
+  useEffect(() => {
+    if (data && userStorageKey) {
+      localStorage.setItem(userStorageKey, JSON.stringify(data));
+    }
+  }, [data, userStorageKey]);
+
+  const [activeClubId, setActiveClubId] = useState(null);
+  const [activeSeasonId, setActiveSeasonId] = useState(null);
+
+  // Sync active club & season whenever data changes
+  useEffect(() => {
+    if (data.clubs && data.clubs.length > 0) {
+      const currentActiveClub = data.clubs.find(c => c.id === activeClubId) || data.clubs[0];
+      setActiveClubId(currentActiveClub.id);
+
+      const clubSeasons = data.seasons.filter(s => s.clubId === currentActiveClub.id);
+      if (clubSeasons.length > 0) {
+        const currentActiveSeason = clubSeasons.find(s => s.id === activeSeasonId) || clubSeasons[clubSeasons.length - 1];
+        setActiveSeasonId(currentActiveSeason.id);
+      } else {
+        setActiveSeasonId(null);
+      }
+    } else {
+      setActiveClubId(null);
+      setActiveSeasonId(null);
+    }
+  }, [data, activeClubId, activeSeasonId]);
+
+  const selectClub = (clubId) => {
+    setActiveClubId(clubId);
+    const clubSeasons = data.seasons.filter(s => s.clubId === clubId);
+    if (clubSeasons.length > 0) {
+      setActiveSeasonId(clubSeasons[clubSeasons.length - 1].id);
+    } else {
+      setActiveSeasonId(null);
+    }
+  };
+
+  const activeClub = data.clubs?.find(c => c.id === activeClubId);
+  const activeSeason = data.seasons?.find(s => s.id === activeSeasonId);
+  const clubSeasons = data.seasons?.filter(s => s.clubId === activeClubId) || [];
+  const currentPlayers = data.players?.filter(p => p.seasonId === activeSeasonId) || [];
+  const currentTransfers = data.transfers?.filter(t => t.seasonId === activeSeasonId) || [];
+  const currentYouth = data.youthAcademy?.filter(y => y.seasonId === activeSeasonId) || [];
+  const currentPress = (data.pressConferences || []).filter(p => p.seasonId === activeSeasonId);
+  const currentNews = (data.newsArticles || []).filter(n => n.seasonId === activeSeasonId);
+
+  // Dynamic Win Rate Math per User
+  const clubTotalWins = clubSeasons.reduce((acc, s) => acc + (s.matchResults?.wins || 0), 0);
+  const clubTotalDraws = clubSeasons.reduce((acc, s) => acc + (s.matchResults?.draws || 0), 0);
+  const clubTotalLosses = clubSeasons.reduce((acc, s) => acc + (s.matchResults?.losses || 0), 0);
+  const clubTotalMatches = clubTotalWins + clubTotalDraws + clubTotalLosses;
+  const computedWinRate = clubTotalMatches > 0 
+    ? Number(((clubTotalWins / clubTotalMatches) * 100).toFixed(1)) 
+    : (activeClub?.globalWinRate || 50.0);
+
+  // Actions
+  const recordMatchResult = (resultType, delta = 1) => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
+          const key = resultType === 'win' ? 'wins' : (resultType === 'draw' ? 'draws' : 'losses');
+          const newVal = Math.max(0, (currentResults[key] || 0) + delta);
+
+          return {
+            ...s,
+            matchResults: {
+              ...currentResults,
+              [key]: newVal
+            }
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const updateClub = (clubId, updatedFields) => {
+    setData(prev => ({
+      ...prev,
+      clubs: prev.clubs.map(c => c.id === clubId ? { ...c, ...updatedFields } : c)
+    }));
+  };
+
+  const addClub = (newClub) => {
+    const clubId = "c_" + Date.now();
+    const club = {
+      id: clubId,
+      name: newClub.name,
+      stadium: newClub.stadium || "Estadio Municipal",
+      logo: newClub.logo || "⚽",
+      color: newClub.color || "#10B981",
+      managerName: newClub.managerName || (currentUser ? currentUser.name : "Mánager"),
+      globalWinRate: 50.0,
+      totalTrophies: 0
+    };
+    
+    const seasonId = "s_" + Date.now();
+    const firstSeason = {
+      id: seasonId,
+      clubId: clubId,
+      year: "2024/25",
+      budget: newClub.budget ? Number(newClub.budget) : 10000000,
+      matchResults: { wins: 0, draws: 0, losses: 0 },
+      tacticsOfensive: {
+        formation: "4-2-3-1 (Estrecho)",
+        style: "Posesión",
+        width: 65,
+        depth: 70,
+        playersInBox: 6,
+        startingXI: []
+      },
+      tacticsDefensive: {
+        formation: "4-4-2 (Plano)",
+        style: "Presión tras Pérdida",
+        width: 45,
+        depth: 40,
+        startingXI: []
+      },
+      competitions: [
+        { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
+      ],
+      awards: { mvp: "Por determinar", topScorer: "Por determinar", topAssister: "Por determinar" }
+    };
+
+    setData(prev => ({
+      ...prev,
+      clubs: [...prev.clubs, club],
+      seasons: [...prev.seasons, firstSeason]
+    }));
+
+    setActiveClubId(clubId);
+    setActiveSeasonId(seasonId);
+  };
+
+  const addSeason = (seasonData) => {
+    if (!activeClubId) return;
+    const seasonId = "s_" + Date.now();
+    
+    const lastSeason = clubSeasons[clubSeasons.length - 1];
+    const baseOfensive = lastSeason ? JSON.parse(JSON.stringify(lastSeason.tacticsOfensive || lastSeason.tactics || {})) : {
+      formation: "4-2-3-1 (Estrecho)",
+      style: "Posesión",
+      width: 65,
+      depth: 70,
+      playersInBox: 6,
+      startingXI: []
+    };
+    const baseDefensive = lastSeason ? JSON.parse(JSON.stringify(lastSeason.tacticsDefensive || lastSeason.tactics || {})) : {
+      formation: "4-4-2 (Plano)",
+      style: "Presión tras Pérdida",
+      width: 45,
+      depth: 40,
+      startingXI: []
+    };
+
+    const newSeason = {
+      id: seasonId,
+      clubId: activeClubId,
+      year: seasonData.year,
+      budget: Number(seasonData.budget) || 15000000,
+      matchResults: { wins: 0, draws: 0, losses: 0 },
+      tacticsOfensive: baseOfensive,
+      tacticsDefensive: baseDefensive,
+      competitions: seasonData.competitions || [
+        { id: "c1_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
+      ],
+      awards: { mvp: "En curso", topScorer: "En curso", topAssister: "En curso" }
+    };
+
+    let copiedPlayers = [];
+    if (lastSeason && seasonData.copySquad) {
+      const prevPlayers = data.players.filter(p => p.seasonId === lastSeason.id);
+      copiedPlayers = prevPlayers.map(p => ({
+        ...p,
+        id: "p_" + Math.random().toString(36).substr(2, 9),
+        seasonId: seasonId,
+        stats: { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 }
+      }));
+    }
+
+    setData(prev => ({
+      ...prev,
+      seasons: [...prev.seasons, newSeason],
+      players: [...prev.players, ...copiedPlayers]
+    }));
+
+    setActiveSeasonId(seasonId);
+  };
+
+  const addPlayer = (playerInfo) => {
+    if (!activeSeasonId) return;
+    const newPlayer = {
+      id: "p_" + Date.now(),
+      seasonId: activeSeasonId,
+      name: playerInfo.name,
+      position: playerInfo.position,
+      overall: Number(playerInfo.overall) || 75,
+      stats: {
+        minutes: Number(playerInfo.minutes) || 0,
+        matches: Number(playerInfo.matches) || 0,
+        goals: Number(playerInfo.goals) || 0,
+        assists: Number(playerInfo.assists) || 0,
+        cleanSheets: Number(playerInfo.cleanSheets) || 0,
+        yellowCards: Number(playerInfo.yellowCards) || 0,
+        redCards: Number(playerInfo.redCards) || 0
+      }
+    };
+
+    setData(prev => ({
+      ...prev,
+      players: [...prev.players, newPlayer]
+    }));
+  };
+
+  const updatePlayerStats = (playerId, updatedStats) => {
+    setData(prev => ({
+      ...prev,
+      players: prev.players.map(p => {
+        if (p.id === playerId) {
+          return {
+            ...p,
+            name: updatedStats.name !== undefined ? updatedStats.name : p.name,
+            position: updatedStats.position !== undefined ? updatedStats.position : p.position,
+            overall: updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall,
+            stats: {
+              ...p.stats,
+              ...updatedStats.stats
+            }
+          };
+        }
+        return p;
+      })
+    }));
+  };
+
+  const deletePlayer = (playerId) => {
+    setData(prev => ({
+      ...prev,
+      players: prev.players.filter(p => p.id !== playerId)
+    }));
+  };
+
+  const updatePhaseTactics = (phase, phaseData) => {
+    if (!activeSeasonId) return;
+    const key = phase === 'ofensive' ? 'tacticsOfensive' : 'tacticsDefensive';
+    
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            [key]: {
+              ...(s[key] || {}),
+              ...phaseData
+            }
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const addTransfer = (transferData) => {
+    if (!activeSeasonId) return;
+    const fee = Number(transferData.fee) || 0;
+    const newTransfer = {
+      id: "t_" + Date.now(),
+      seasonId: activeSeasonId,
+      playerName: transferData.playerName,
+      type: transferData.type,
+      fee: fee,
+      fromTo: transferData.fromTo
+    };
+
+    let budgetDelta = 0;
+    if (transferData.type === 'Fichaje') budgetDelta = -fee;
+    if (transferData.type === 'Venta') budgetDelta = fee;
+
+    setData(prev => ({
+      ...prev,
+      transfers: [newTransfer, ...prev.transfers],
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            budget: Math.max(0, s.budget + budgetDelta)
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const addYouthProspect = (youthInfo) => {
+    if (!activeSeasonId) return;
+    const initOvr = Number(youthInfo.initialOverall) || 64;
+    const currOvr = Number(youthInfo.currentOverall) || initOvr;
+
+    const newYouth = {
+      id: "y_" + Date.now(),
+      seasonId: activeSeasonId,
+      name: youthInfo.name,
+      position: youthInfo.position,
+      potential: youthInfo.potential || "85-94",
+      initialOverall: initOvr,
+      currentOverall: currOvr,
+      promoted: false
+    };
+
+    setData(prev => ({
+      ...prev,
+      youthAcademy: [newYouth, ...prev.youthAcademy]
+    }));
+  };
+
+  const updateYouthProspect = (youthId, updatedFields) => {
+    setData(prev => ({
+      ...prev,
+      youthAcademy: prev.youthAcademy.map(y => {
+        if (y.id === youthId) {
+          return { ...y, ...updatedFields };
+        }
+        return y;
+      })
+    }));
+  };
+
+  const deleteYouthProspect = (youthId) => {
+    setData(prev => ({
+      ...prev,
+      youthAcademy: prev.youthAcademy.filter(y => y.id !== youthId)
+    }));
+  };
+
+  const promoteYouthProspect = (youthId) => {
+    const youth = data.youthAcademy.find(y => y.id === youthId);
+    if (!youth || youth.promoted) return;
+
+    const finalOverall = youth.currentOverall || youth.initialOverall || 70;
+    const newPlayer = {
+      id: "p_promoted_" + Date.now(),
+      seasonId: activeSeasonId,
+      name: youth.name + " (Cantera)",
+      position: youth.position,
+      overall: finalOverall,
+      stats: { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 }
+    };
+
+    setData(prev => ({
+      ...prev,
+      players: [...prev.players, newPlayer],
+      youthAcademy: prev.youthAcademy.map(y => y.id === youthId ? { ...y, promoted: true } : y)
+    }));
+  };
+
+  const savePressConference = (conferenceObj) => {
+    if (!activeSeasonId) return;
+    const newConf = {
+      id: "press_" + Date.now(),
+      seasonId: activeSeasonId,
+      date: new Date().toLocaleDateString('es-ES'),
+      ...conferenceObj
+    };
+    setData(prev => ({
+      ...prev,
+      pressConferences: [newConf, ...(prev.pressConferences || [])]
+    }));
+  };
+
+  const saveNewsArticle = (articleObj) => {
+    if (!activeSeasonId) return;
+    const newArticle = {
+      id: "article_" + Date.now(),
+      seasonId: activeSeasonId,
+      isFavorite: false,
+      ...articleObj
+    };
+    setData(prev => ({
+      ...prev,
+      newsArticles: [newArticle, ...(prev.newsArticles || [])]
+    }));
+  };
+
+  const toggleNewsFavorite = (articleId) => {
+    setData(prev => ({
+      ...prev,
+      newsArticles: (prev.newsArticles || []).map(n => {
+        if (n.id === articleId) {
+          return { ...n, isFavorite: !n.isFavorite };
+        }
+        return n;
+      })
+    }));
+  };
+
+  const clearUnfavoritedNews = () => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      newsArticles: (prev.newsArticles || []).filter(n => n.seasonId !== activeSeasonId || n.isFavorite)
+    }));
+  };
+
+  const addCompetition = (compData) => {
+    if (!activeSeasonId) return;
+    const newEntry = {
+      id: "comp_" + Date.now(),
+      name: compData.name,
+      type: compData.type || "league",
+      status: compData.status || "en_curso",
+      result: compData.result || "En Curso"
+    };
+
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            competitions: [...(s.competitions || []), newEntry]
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const updateCompetitionEntry = (compId, updatedFields) => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            competitions: (s.competitions || []).map(c => c.id === compId ? { ...c, ...updatedFields } : c)
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const deleteCompetitionEntry = (compId) => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            competitions: (s.competitions || []).filter(c => c.id !== compId)
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const updateAwards = (newAwards) => {
+    if (!activeSeasonId) return;
+    setData(prev => ({
+      ...prev,
+      seasons: prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          return {
+            ...s,
+            awards: { ...s.awards, ...newAwards }
+          };
+        }
+        return s;
+      })
+    }));
+  };
+
+  const resetToDefaultData = () => {
+    localStorage.removeItem(userStorageKey);
+    setData({
+      ...INITIAL_DATA,
+      clubs: [
+        {
+          id: "c1_" + Date.now(),
+          name: "CD Leganés",
+          stadium: "Estadio Municipal de Butarque",
+          logo: "⚽",
+          color: "#0055A5",
+          managerName: currentUser ? currentUser.name : "Mánager",
+          globalWinRate: 50.0,
+          totalTrophies: 0
+        }
+      ],
+      seasons: [
+        {
+          id: "s1_" + Date.now(),
+          clubId: "c1_" + Date.now(),
+          year: "2024/25",
+          budget: 15000000,
+          matchResults: { wins: 0, draws: 0, losses: 0 },
+          tacticsOfensive: {
+            formation: "4-2-3-1 (Estrecho)",
+            style: "Posesión",
+            width: 65,
+            depth: 70,
+            playersInBox: 6,
+            startingXI: []
+          },
+          tacticsDefensive: {
+            formation: "4-4-2 (Plano)",
+            style: "Presión tras Pérdida",
+            width: 45,
+            depth: 40,
+            startingXI: []
+          },
+          competitions: [
+            { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
+          ],
+          awards: { mvp: "Por determinar", topScorer: "Por determinar", topAssister: "Por determinar" }
+        }
+      ],
+      players: [],
+      transfers: [],
+      youthAcademy: [],
+      pressConferences: [],
+      newsArticles: []
+    });
+  };
+
+  return (
+    <AppContext.Provider value={{
+      data,
+      setData,
+      activeClubId,
+      activeSeasonId,
+      activeClub,
+      activeSeason,
+      clubSeasons,
+      currentPlayers,
+      currentTransfers,
+      currentYouth,
+      currentPress,
+      currentNews,
+      computedWinRate,
+      clubTotalWins,
+      clubTotalDraws,
+      clubTotalLosses,
+      clubTotalMatches,
+      recordMatchResult,
+      selectClub,
+      setActiveSeasonId,
+      updateClub,
+      addClub,
+      addSeason,
+      addPlayer,
+      updatePlayerStats,
+      deletePlayer,
+      updatePhaseTactics,
+      addTransfer,
+      addYouthProspect,
+      updateYouthProspect,
+      deleteYouthProspect,
+      promoteYouthProspect,
+      savePressConference,
+      saveNewsArticle,
+      toggleNewsFavorite,
+      clearUnfavoritedNews,
+      addCompetition,
+      updateCompetitionEntry,
+      deleteCompetitionEntry,
+      updateAwards,
+      resetToDefaultData
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => useContext(AppContext);

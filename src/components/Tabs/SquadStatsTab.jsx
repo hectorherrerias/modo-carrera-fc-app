@@ -1,0 +1,291 @@
+import React, { useState, useMemo } from 'react';
+import { useApp } from '../../context/AppContext';
+import { 
+  Users, UserPlus, Search, ArrowUpDown, ArrowUp, ArrowDown, 
+  Edit3, Trash2, ShieldAlert, Award, Activity 
+} from 'lucide-react';
+import { AddPlayerModal } from '../Modals/AddPlayerModal';
+import { UpdateStatsModal } from '../Modals/UpdateStatsModal';
+
+export const SquadStatsTab = () => {
+  const { currentPlayers, addPlayer, updatePlayerStats, deletePlayer } = useApp();
+
+  const [search, setSearch] = useState('');
+  const [positionFilter, setPositionFilter] = useState('ALL');
+  const [sortField, setSortField] = useState('overall'); // default sort by GRL overall
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
+
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState(null);
+
+  // Column sort toggle
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  // Filter & sort player list
+  const filteredPlayers = useMemo(() => {
+    return currentPlayers
+      .filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+        const matchesPos = positionFilter === 'ALL' || p.position === positionFilter;
+        return matchesSearch && matchesPos;
+      })
+      .sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+
+        // If nested in stats object
+        if (['minutes', 'matches', 'goals', 'assists', 'cleanSheets', 'yellowCards', 'redCards'].includes(sortField)) {
+          aVal = a.stats ? a.stats[sortField] || 0 : 0;
+          bVal = b.stats ? b.stats[sortField] || 0 : 0;
+        }
+
+        if (typeof aVal === 'string') {
+          return sortOrder === 'asc' 
+            ? aVal.localeCompare(bVal) 
+            : bVal.localeCompare(aVal);
+        }
+
+        return sortOrder === 'asc' ? (aVal - bVal) : (bVal - aVal);
+      });
+  }, [currentPlayers, search, positionFilter, sortField, sortOrder]);
+
+  const uniquePositions = useMemo(() => {
+    const set = new Set(currentPlayers.map(p => p.position));
+    return Array.from(set);
+  }, [currentPlayers]);
+
+  const handleDelete = (id, name) => {
+    if (window.confirm(`¿Seguro que deseas eliminar a ${name} de la plantilla?`)) {
+      deletePlayer(id);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Controls Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+        
+        {/* Search & Position Filter */}
+        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto">
+          
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <input
+              type="text"
+              placeholder="Buscar jugador..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="w-full sm:w-auto">
+            <select
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 text-xs font-bold text-slate-300 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="ALL">Todas las posiciones ({currentPlayers.length})</option>
+              {uniquePositions.map(pos => (
+                <option key={pos} value={pos}>{pos}</option>
+              ))}
+            </select>
+          </div>
+
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="w-full md:w-auto flex items-center justify-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>Añadir Jugador</span>
+        </button>
+
+      </div>
+
+      {/* Stats Data Table */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            
+            {/* Table Header */}
+            <thead>
+              <tr className="bg-slate-950/80 border-b border-slate-800 text-[11px] font-extrabold uppercase text-slate-400 select-none">
+                
+                <th onClick={() => handleSort('name')} className="py-3.5 px-4 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center space-x-1">
+                    <span>Nombre</span>
+                    {sortField === 'name' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-400" /> : <ArrowDown className="w-3 h-3 text-emerald-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('position')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center space-x-1">
+                    <span>Posición</span>
+                    {sortField === 'position' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-400" /> : <ArrowDown className="w-3 h-3 text-emerald-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('overall')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>GRL</span>
+                    {sortField === 'overall' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-amber-400" /> : <ArrowDown className="w-3 h-3 text-amber-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('matches')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <span>Partidos</span>
+                </th>
+
+                <th onClick={() => handleSort('minutes')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <span>Minutos</span>
+                </th>
+
+                <th onClick={() => handleSort('goals')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Goles ⚽</span>
+                    {sortField === 'goals' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-400" /> : <ArrowDown className="w-3 h-3 text-emerald-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('assists')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Asist. 👟</span>
+                    {sortField === 'assists' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('cleanSheets')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <span>P. Cero 🧤</span>
+                </th>
+
+                <th onClick={() => handleSort('yellowCards')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <span>Amarillas 🟨</span>
+                </th>
+
+                <th onClick={() => handleSort('redCards')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <span>Rojas 🟥</span>
+                </th>
+
+                <th className="py-3.5 px-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+
+            {/* Table Body */}
+            <tbody className="divide-y divide-slate-800/60 text-xs font-semibold text-slate-200">
+              {filteredPlayers.length === 0 ? (
+                <tr>
+                  <td colSpan="11" className="py-8 text-center text-slate-500 text-sm">
+                    No se encontraron jugadores registrados en esta temporada.
+                  </td>
+                </tr>
+              ) : (
+                filteredPlayers.map((player) => (
+                  <tr key={player.id} className="hover:bg-slate-800/40 transition-colors">
+                    
+                    <td className="py-3.5 px-4 font-extrabold text-white">
+                      {player.name}
+                    </td>
+
+                    <td className="py-3.5 px-3">
+                      <span className="bg-slate-950 border border-slate-800 px-2 py-0.5 rounded text-[11px] font-black text-emerald-400">
+                        {player.position}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className="font-extrabold text-amber-400 text-sm">
+                        {player.overall}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center text-slate-300">
+                      {player.stats?.matches || 0}
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center text-slate-400 font-mono">
+                      {player.stats?.minutes || 0}'
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={`font-extrabold ${player.stats?.goals > 0 ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                        {player.stats?.goals || 0}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={`font-extrabold ${player.stats?.assists > 0 ? 'text-cyan-400 font-bold' : 'text-slate-500'}`}>
+                        {player.stats?.assists || 0}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center text-slate-400">
+                      {player.stats?.cleanSheets || 0}
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={player.stats?.yellowCards > 0 ? 'text-amber-400 font-bold' : 'text-slate-600'}>
+                        {player.stats?.yellowCards || 0}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={player.stats?.redCards > 0 ? 'text-rose-500 font-bold' : 'text-slate-600'}>
+                        {player.stats?.redCards || 0}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-4 text-right space-x-1">
+                      <button
+                        onClick={() => setEditingPlayer(player)}
+                        title="Actualizar Estadísticas"
+                        className="p-1.5 rounded-lg border border-slate-800 hover:border-amber-500/50 text-slate-400 hover:text-amber-400 bg-slate-950 transition-all"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(player.id, player.name)}
+                        title="Eliminar Jugador"
+                        className="p-1.5 rounded-lg border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 bg-slate-950 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+
+                  </tr>
+                ))
+              )}
+            </tbody>
+
+          </table>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AddPlayerModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={addPlayer}
+      />
+
+      <UpdateStatsModal
+        isOpen={!!editingPlayer}
+        onClose={() => setEditingPlayer(null)}
+        player={editingPlayer}
+        onUpdate={updatePlayerStats}
+      />
+
+    </div>
+  );
+};

@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme Color Variables */
+:root, [data-theme="dark-emerald"] {
+  --bg-app: #020617;
+  --bg-card: #0f172a;
+  --bg-input: #020617;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-app: #1e293b;
+  --accent-app: #10b981;
+}
+
+[data-theme="light-stadium"] {
+  --bg-app: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-input: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-app: #e2e8f0;
+  --accent-app: #059669;
+}
+
+[data-theme="midnight-cyber"] {
+  --bg-app: #030712;
+  --bg-card: #0b1329;
+  --bg-input: #030712;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --border-app: #1e293b;
+  --accent-app: #3b82f6;
+}
+
+[data-theme="gold-champions"] {
+  --bg-app: #0a0a0a;
+  --bg-card: #171717;
+  --bg-input: #0a0a0a;
+  --text-main: #fafafa;
+  --text-muted: #a3a3a3;
+  --border-app: #262626;
+  --accent-app: #f59e0b;
+}
+
+[data-theme="red-passion"] {
+  --bg-app: #0c0a09;
+  --bg-card: #1c1917;
+  --bg-input: #0c0a09;
+  --text-main: #fafaf9;
+  --text-muted: #a8a29e;
+  --border-app: #292524;
+  --accent-app: #ef4444;
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    @apply antialiased font-sans overflow-x-hidden transition-colors duration-300;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom Theme Overrides */
+[data-theme="light-stadium"] .bg-slate-950,
+[data-theme="light-stadium"] .bg-slate-900 {
+  background-color: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-app) !important;
+}
+
+[data-theme="light-stadium"] .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme="light-stadium"] .text-slate-400 {
+  color: #64748b !important;
+}
+
+[data-theme="light-stadium"] .border-slate-800,
+[data-theme="light-stadium"] .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.select-none {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-app);
+  border-radius: 4px;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
