@@ -14,10 +14,14 @@ const careerCloudDbPlugin = () => ({
     server.middlewares.use((req, res, next) => {
       const url = new URL(req.url, 'http://localhost');
       
-      // Match /api/cloud-db/users/:emailKey.json or /api/cloud-db/users/:emailKey
-      if (url.pathname.startsWith('/api/cloud-db/users/')) {
-        const rawKey = url.pathname.replace('/api/cloud-db/users/', '').replace(/\.json$/, '');
-        const safeKey = decodeURIComponent(rawKey).toLowerCase().replace(/[^a-z0-9]/gi, '_') + '.json';
+      // Match /api/cloud-db, /api/sync, or /api/cloud-db/users/:emailKey
+      if (url.pathname.startsWith('/api/cloud-db') || url.pathname.startsWith('/api/sync')) {
+        let rawKey = url.searchParams.get('email') || url.searchParams.get('key');
+        if (!rawKey && url.pathname.startsWith('/api/cloud-db/users/')) {
+          rawKey = url.pathname.replace('/api/cloud-db/users/', '').replace(/\.json$/, '');
+        }
+
+        const safeKey = decodeURIComponent(rawKey || 'default_user').toLowerCase().replace(/[^a-z0-9]/gi, '_') + '.json';
         const filePath = path.join(dbDir, safeKey);
 
         res.setHeader('Access-Control-Allow-Origin', '*');
@@ -72,7 +76,7 @@ const careerCloudDbPlugin = () => ({
 export default defineConfig({
   plugins: [react(), careerCloudDbPlugin()],
   server: {
-    host: true, // Allow iPad, mobile and other devices on same WiFi/network to connect
+    host: true,
     port: 5173
   }
 });
