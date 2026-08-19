@@ -8,6 +8,8 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [competition, setCompetition] = useState('');
+  const [isCustomComp, setIsCustomComp] = useState(false);
+  const [customComp, setCustomComp] = useState('');
   const [venue, setVenue] = useState('local'); // 'local' | 'visitante'
   const [ourGoals, setOurGoals] = useState(2);
   const [opponentGoals, setOpponentGoals] = useState(1);
@@ -33,9 +35,12 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       setOfficialMVP('');
       setMyMVP('');
       setNotes('');
+      setIsCustomComp(false);
+      setCustomComp('');
 
-      // Default competition
-      const defaultComp = activeSeason?.competitions?.[0]?.name || 'LaLiga EA Sports';
+      // Default competition from active season
+      const seasonComps = (activeSeason?.competitions || []).map(c => c.name).filter(Boolean);
+      const defaultComp = seasonComps[0] || 'LaLiga EA Sports';
       setCompetition(defaultComp);
 
       // Auto-select starting XI by default if available
@@ -267,20 +272,38 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
 
             <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Competición</label>
-              <input
-                type="text"
-                list="comp-list"
-                required
-                placeholder="LaLiga, Champions..."
-                value={competition}
-                onChange={(e) => setCompetition(e.target.value)}
+              <select
+                value={isCustomComp ? '_custom_' : competition}
+                onChange={(e) => {
+                  if (e.target.value === '_custom_') {
+                    setIsCustomComp(true);
+                    setCompetition(customComp || '');
+                  } else {
+                    setIsCustomComp(false);
+                    setCompetition(e.target.value);
+                  }
+                }}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
-              />
-              <datalist id="comp-list">
+              >
                 {competitionsList.map((c, i) => (
-                  <option key={i} value={c} />
+                  <option key={i} value={c}>🏆 {c}</option>
                 ))}
-              </datalist>
+                <option value="_custom_">➕ Otra Competición (Personalizada)</option>
+              </select>
+
+              {isCustomComp && (
+                <input
+                  type="text"
+                  required
+                  placeholder="Escribe el nombre del torneo..."
+                  value={customComp}
+                  onChange={(e) => {
+                    setCustomComp(e.target.value);
+                    setCompetition(e.target.value);
+                  }}
+                  className="w-full mt-1.5 px-3 py-1.5 bg-slate-950 border border-emerald-500/50 rounded-xl text-white font-bold text-xs focus:outline-none"
+                />
+              )}
             </div>
 
             <div>

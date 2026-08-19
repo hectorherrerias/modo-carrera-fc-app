@@ -16,7 +16,15 @@ export const MatchesCalendarTab = () => {
   const [resultFilter, setResultFilter] = useState('ALL');
   const [expandedMatchId, setExpandedMatchId] = useState(null);
 
-  // Compute aggregate statistics from matches
+  // All competitions registered in active season + any logged in matches
+  const allCompetitionsList = useMemo(() => {
+    const fromSeason = (activeSeason?.competitions || []).map(c => c.name).filter(Boolean);
+    const fromMatches = (currentMatches || []).map(m => m.competition).filter(Boolean);
+    const unique = Array.from(new Set([...fromSeason, ...fromMatches]));
+    return unique.length > 0 ? unique : ['LaLiga EA Sports', 'Copa del Rey', 'UEFA Champions League'];
+  }, [activeSeason, currentMatches]);
+
+  // Compute aggregate statistics from matches (scoped to selected competition if filtered)
   const stats = useMemo(() => {
     let totalWins = 0;
     let totalDraws = 0;
@@ -24,7 +32,11 @@ export const MatchesCalendarTab = () => {
     let totalGoalsFor = 0;
     let totalGoalsAgainst = 0;
 
-    currentMatches.forEach(m => {
+    const matchesToCount = compFilter === 'ALL'
+      ? currentMatches
+      : currentMatches.filter(m => m.competition === compFilter);
+
+    matchesToCount.forEach(m => {
       if (m.result === 'V') totalWins++;
       else if (m.result === 'E') totalDraws++;
       else if (m.result === 'D') totalLosses++;
@@ -38,7 +50,7 @@ export const MatchesCalendarTab = () => {
       }
     });
 
-    const total = currentMatches.length;
+    const total = matchesToCount.length;
     const winRate = total > 0 ? Number(((totalWins / total) * 100).toFixed(1)) : 0;
 
     return {
@@ -50,7 +62,7 @@ export const MatchesCalendarTab = () => {
       totalGoalsAgainst,
       winRate
     };
-  }, [currentMatches]);
+  }, [currentMatches, compFilter]);
 
   // Form Streak: last 5 matches
   const last5Matches = useMemo(() => {
@@ -68,10 +80,7 @@ export const MatchesCalendarTab = () => {
     });
   }, [currentMatches, search, compFilter, resultFilter]);
 
-  const uniqueCompetitions = useMemo(() => {
-    const set = new Set(currentMatches.map(m => m.competition).filter(Boolean));
-    return Array.from(set);
-  }, [currentMatches]);
+  const uniqueCompetitions = allCompetitionsList;
 
   const handleDelete = (matchId, opponent) => {
     if (window.confirm(`¿Seguro que deseas eliminar el registro del partido contra ${opponent}?`)) {
@@ -112,6 +121,44 @@ export const MatchesCalendarTab = () => {
           <span>Registrar Nuevo Partido</span>
         </button>
 
+      </div>
+
+      {/* Competitions Quick Selector Filter Pills (Chips) */}
+      <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+        <button
+          onClick={() => setCompFilter('ALL')}
+          className={`flex items-center space-x-1.5 px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+            compFilter === 'ALL'
+              ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20 scale-105'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Trophy className="w-3.5 h-3.5" />
+          <span>Todas las Competiciones ({currentMatches.length})</span>
+        </button>
+
+        {allCompetitionsList.map(comp => {
+          const count = currentMatches.filter(m => m.competition === comp).length;
+          const isActive = compFilter === comp;
+          return (
+            <button
+              key={comp}
+              onClick={() => setCompFilter(comp)}
+              className={`flex items-center space-x-1.5 px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                isActive
+                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20 scale-105'
+                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+              }`}
+            >
+              <span>🏆 {comp}</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                isActive ? 'bg-slate-950 text-emerald-400' : 'bg-slate-950 text-slate-500'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Season Matches Metrics Strip */}
