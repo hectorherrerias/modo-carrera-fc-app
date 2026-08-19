@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { LayoutGrid, Users, Trophy, ArrowLeftRight, GraduationCap, Mic, Newspaper, Calendar, Edit3, Landmark, Plus, Minus, Percent, Flame } from 'lucide-react';
+import { 
+  LayoutGrid, Users, Trophy, ArrowLeftRight, GraduationCap, Mic, 
+  Newspaper, Calendar, Edit3, Landmark, Plus, Minus, Percent, Flame, 
+  ChevronLeft, ChevronRight 
+} from 'lucide-react';
 import { TacticsTab } from '../components/Tabs/TacticsTab';
 import { SquadStatsTab } from '../components/Tabs/SquadStatsTab';
 import { MatchesCalendarTab } from '../components/Tabs/MatchesCalendarTab';
@@ -19,6 +23,14 @@ export const SeasonDashboardView = () => {
   const [activeTab, setActiveTab] = useState('tactics');
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
   const [isEditSeasonModalOpen, setIsEditSeasonModalOpen] = useState(false);
+  const tabsContainerRef = useRef(null);
+
+  const scrollTabs = (direction) => {
+    if (tabsContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -260 : 260;
+      tabsContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   if (!activeClub || !activeSeason) {
     return (
@@ -35,13 +47,13 @@ export const SeasonDashboardView = () => {
   const seasonTotalMatches = seasonWins + seasonDraws + seasonLosses;
 
   const tabs = [
-    { id: 'tactics', label: 'Táctica y 11 de Gala', icon: LayoutGrid },
-    { id: 'stats', label: 'Estadísticas de Plantilla', icon: Users },
-    { id: 'matches', label: 'Calendario y Partidos', icon: Calendar },
+    { id: 'tactics', label: 'Táctica (11 de Gala)', icon: LayoutGrid },
+    { id: 'stats', label: 'Plantilla y Estadísticas', icon: Users },
+    { id: 'matches', label: 'Partidos y Calendario', icon: Calendar },
     { id: 'competitions', label: 'Competiciones y Premios', icon: Trophy },
     { id: 'transfers', label: 'Mercado y Finanzas', icon: ArrowLeftRight },
     { id: 'youth', label: 'Cantera', icon: GraduationCap },
-    { id: 'press', label: 'Ruedas de Prensa', icon: Mic },
+    { id: 'press', label: 'Ruedas de Prensa (IA)', icon: Mic },
     { id: 'news', label: 'Prensa y Portadas', icon: Newspaper },
   ];
 
@@ -230,26 +242,54 @@ export const SeasonDashboardView = () => {
 
       </div>
 
-      {/* Tabs Navigation Bar (Desktop & Tablet) */}
-      <div className="hidden sm:flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-none">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 ${
-                isActive
-                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20 scale-105'
-                  : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Tabs Navigation Bar (Scrollable on all devices with Navigation Controls) */}
+      <div className="relative flex items-center bg-slate-900/90 border border-slate-800 rounded-2xl p-1.5 shadow-xl backdrop-blur-md">
+        
+        {/* Scroll Left Button */}
+        <button
+          type="button"
+          onClick={() => scrollTabs('left')}
+          title="Desplazar pestañas hacia la izquierda"
+          className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 shrink-0 transition-colors shadow-sm cursor-pointer z-10 mr-1"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Scrollable Tabs List */}
+        <div 
+          ref={tabsContainerRef}
+          className="flex-1 flex items-center space-x-1.5 overflow-x-auto scroll-smooth py-1 px-1 scrollbar-none"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold whitespace-nowrap transition-all duration-200 cursor-pointer shrink-0 ${
+                  isActive
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 scale-[1.02]'
+                    : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800/60'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Scroll Right Button */}
+        <button
+          type="button"
+          onClick={() => scrollTabs('right')}
+          title="Desplazar pestañas hacia la derecha"
+          className="hidden md:flex items-center justify-center w-8 h-8 rounded-xl bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 shrink-0 transition-colors shadow-sm cursor-pointer z-10 ml-1"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
       </div>
 
       {/* Tab Content Display */}
