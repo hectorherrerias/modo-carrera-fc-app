@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { 
   Users, UserPlus, Search, ArrowUpDown, ArrowUp, ArrowDown, 
-  Edit3, Trash2, ShieldAlert, Award, Activity 
+  Edit3, Trash2, ShieldAlert, Award, Activity, Plus, Minus, TrendingUp 
 } from 'lucide-react';
 import { AddPlayerModal } from '../Modals/AddPlayerModal';
 import { UpdateStatsModal } from '../Modals/UpdateStatsModal';
@@ -49,11 +49,25 @@ export const SquadStatsTab = () => {
 
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState('ALL');
-  const [sortField, setSortField] = useState('overall'); // default sort by GRL overall
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
-
+  const [sortField, setSortField] = useState('position');
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState(null);
+
+  const handleQuickOvrChange = (playerId, delta) => {
+    const player = currentPlayers.find(p => p.id === playerId);
+    if (!player) return;
+    const currentOvr = Number(player.overall) || 75;
+    const nextOvr = Math.max(40, Math.min(99, currentOvr + delta));
+    updatePlayerStats(playerId, { overall: nextOvr });
+  };
+
+  const handleDirectOvrChange = (playerId, val) => {
+    const num = Number(val);
+    if (!isNaN(num) && num >= 40 && num <= 99) {
+      updatePlayerStats(playerId, { overall: num });
+    }
+  };
 
   // Column sort toggle
   const handleSort = (field) => {
@@ -308,10 +322,59 @@ export const SquadStatsTab = () => {
                       </span>
                     </td>
 
-                    <td className="py-3.5 px-3 text-center">
-                      <span className="font-extrabold text-amber-400 text-sm">
-                        {player.overall}
-                      </span>
+                    <td className="py-2.5 px-3 text-center">
+                      {(() => {
+                        const initOvr = player.initialOvr !== undefined ? Number(player.initialOvr) : (Number(player.overall) || 75);
+                        const currOvr = Number(player.overall) || 75;
+                        const diff = currOvr - initOvr;
+
+                        return (
+                          <div className="inline-flex items-center justify-center space-x-1.5">
+                            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-1 py-0.5 shadow-inner">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickOvrChange(player.id, -1)}
+                                title="Reducir media (-1)"
+                                className="text-slate-500 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+
+                              <input
+                                type="number"
+                                min="40"
+                                max="99"
+                                value={currOvr}
+                                onChange={(e) => handleDirectOvrChange(player.id, e.target.value)}
+                                className="w-7 text-center bg-transparent font-black text-amber-400 text-xs focus:outline-none focus:text-white"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() => handleQuickOvrChange(player.id, 1)}
+                                title="Aumentar media (+1)"
+                                className="text-slate-500 hover:text-emerald-400 p-0.5 transition-colors cursor-pointer"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            {/* OVR Growth Indicator Badge (+2 in green, -1 in red) */}
+                            {diff !== 0 && (
+                              <span
+                                title={`Media Inicial: ${initOvr} | Evolución: ${diff > 0 ? `+${diff}` : diff}`}
+                                className={`px-1.5 py-0.5 rounded-lg text-[10px] font-black border shadow-sm ${
+                                  diff > 0 
+                                    ? 'bg-emerald-950/90 text-emerald-400 border-emerald-500/40 shadow-emerald-500/10' 
+                                    : 'bg-rose-950/90 text-rose-400 border-rose-500/40 shadow-rose-500/10'
+                                }`}
+                              >
+                                {diff > 0 ? `+${diff}` : diff}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     <td className="py-3.5 px-3">

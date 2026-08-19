@@ -59,5 +59,6 @@ export const INITIAL_DATA = {
   players: [],
   transfers: [],
   youthAcademy: [],
-  matches: []
+  matches: [],
+  shortlist: []
 };

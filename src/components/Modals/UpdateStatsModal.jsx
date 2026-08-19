@@ -15,6 +15,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [overall, setOverall] = useState(75);
+  const [initialOvr, setInitialOvr] = useState(75);
   const [contractYears, setContractYears] = useState(3);
   const [status, setStatus] = useState('Disponible');
   const [officialMVPs, setOfficialMVPs] = useState(0);
@@ -25,6 +26,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
       setName(player.name || '');
       setPosition(player.position || 'DC');
       setOverall(player.overall || 75);
+      setInitialOvr(player.initialOvr !== undefined ? player.initialOvr : (player.overall || 75));
       setContractYears(player.contractYears !== undefined ? player.contractYears : 3);
       setStatus(player.status || 'Disponible');
       setOfficialMVPs(player.officialMVPs || 0);
@@ -56,6 +58,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
       name,
       position,
       overall: Number(overall) || 75,
+      initialOvr: Number(initialOvr) || (Number(overall) || 75),
       contractYears: Number(contractYears) >= 0 ? Number(contractYears) : 3,
       status: status || 'Disponible',
       officialMVPs: Number(officialMVPs) || 0,
@@ -109,7 +112,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">GRL (Overall)</label>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">GRL Actual</label>
               <input
                 type="number"
                 min="40"
@@ -117,6 +120,17 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
                 value={overall}
                 onChange={(e) => setOverall(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-bold text-amber-400"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">GRL Inicial (Evolución)</label>
+              <input
+                type="number"
+                min="40"
+                max="99"
+                value={initialOvr}
+                onChange={(e) => setInitialOvr(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-xs font-semibold"
               />
             </div>
             <div>

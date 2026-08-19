@@ -264,6 +264,7 @@ export const AppProvider = ({ children }) => {
   const clubSeasons = data.seasons?.filter(s => s.clubId === activeClubId) || [];
   const currentPlayers = data.players?.filter(p => p.seasonId === activeSeasonId) || [];
   const currentTransfers = data.transfers?.filter(t => t.seasonId === activeSeasonId) || [];
+  const currentShortlist = data.shortlist?.filter(s => s.seasonId === activeSeasonId) || [];
   const currentYouth = data.youthAcademy?.filter(y => y.seasonId === activeSeasonId) || [];
   const currentMatches = data.matches?.filter(m => m.seasonId === activeSeasonId) || [];
   const currentPress = (data.pressConferences || []).filter(p => p.seasonId === activeSeasonId);
@@ -390,6 +391,7 @@ export const AppProvider = ({ children }) => {
       const remainingSeasons = prev.seasons.filter(s => s.id !== seasonId);
       const remainingPlayers = prev.players.filter(p => p.seasonId !== seasonId);
       const remainingTransfers = prev.transfers.filter(t => t.seasonId !== seasonId);
+      const remainingShortlist = (prev.shortlist || []).filter(s => s.seasonId !== seasonId);
       const remainingYouth = prev.youthAcademy.filter(y => y.seasonId !== seasonId);
       const remainingMatches = (prev.matches || []).filter(m => m.seasonId !== seasonId);
       const remainingPress = (prev.pressConferences || []).filter(p => p.seasonId !== seasonId);
@@ -400,6 +402,7 @@ export const AppProvider = ({ children }) => {
         seasons: remainingSeasons,
         players: remainingPlayers,
         transfers: remainingTransfers,
+        shortlist: remainingShortlist,
         youthAcademy: remainingYouth,
         matches: remainingMatches,
         pressConferences: remainingPress,
@@ -451,6 +454,7 @@ export const AppProvider = ({ children }) => {
         ...p,
         id: "p_" + Math.random().toString(36).substr(2, 9),
         seasonId: seasonId,
+        initialOvr: Number(p.overall) || 75,
         contractYears: p.contractYears !== undefined ? Math.max(0, p.contractYears - 1) : 2,
         status: "Disponible",
         officialMVPs: 0,
@@ -470,12 +474,16 @@ export const AppProvider = ({ children }) => {
 
   const addPlayer = (playerInfo) => {
     if (!activeSeasonId) return;
+    const ovr = Number(playerInfo.overall) || 75;
+    const initOvr = Number(playerInfo.initialOvr) || ovr;
+
     const newPlayer = {
       id: "p_" + Date.now(),
       seasonId: activeSeasonId,
       name: playerInfo.name,
       position: playerInfo.position,
-      overall: Number(playerInfo.overall) || 75,
+      overall: ovr,
+      initialOvr: initOvr,
       contractYears: Number(playerInfo.contractYears) >= 0 ? Number(playerInfo.contractYears) : 3,
       status: playerInfo.status || "Disponible",
       officialMVPs: Number(playerInfo.officialMVPs) || 0,
@@ -502,11 +510,15 @@ export const AppProvider = ({ children }) => {
       ...prev,
       players: prev.players.map(p => {
         if (p.id === playerId) {
+          const newOvr = updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall;
+          const newInitOvr = updatedStats.initialOvr !== undefined ? Number(updatedStats.initialOvr) : (p.initialOvr !== undefined ? p.initialOvr : p.overall);
+
           return {
             ...p,
             name: updatedStats.name !== undefined ? updatedStats.name : p.name,
             position: updatedStats.position !== undefined ? updatedStats.position : p.position,
-            overall: updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall,
+            overall: newOvr,
+            initialOvr: newInitOvr,
             contractYears: updatedStats.contractYears !== undefined ? Number(updatedStats.contractYears) : (p.contractYears ?? 3),
             status: updatedStats.status !== undefined ? updatedStats.status : (p.status || "Disponible"),
             officialMVPs: updatedStats.officialMVPs !== undefined ? Number(updatedStats.officialMVPs) : (p.officialMVPs || 0),
@@ -776,6 +788,40 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  const addShortlistPlayer = (playerData) => {
+    if (!activeSeasonId) return;
+    const newShortlistPlayer = {
+      id: "sh_" + Date.now(),
+      seasonId: activeSeasonId,
+      name: playerData.name || '',
+      position: playerData.position || 'DC',
+      age: Number(playerData.age) || 23,
+      currentClub: playerData.currentClub || '',
+      estimatedValue: Number(playerData.estimatedValue) || 10000000,
+      contractExpiring: Boolean(playerData.contractExpiring), // Termina contrato (Fichaje Libre)
+      notes: playerData.notes || ''
+    };
+
+    setData(prev => ({
+      ...prev,
+      shortlist: [newShortlistPlayer, ...(prev.shortlist || [])]
+    }));
+  };
+
+  const deleteShortlistPlayer = (shortlistId) => {
+    setData(prev => ({
+      ...prev,
+      shortlist: (prev.shortlist || []).filter(s => s.id !== shortlistId)
+    }));
+  };
+
+  const updateShortlistPlayer = (shortlistId, updatedFields) => {
+    setData(prev => ({
+      ...prev,
+      shortlist: (prev.shortlist || []).map(s => s.id === shortlistId ? { ...s, ...updatedFields } : s)
+    }));
+  };
+
   const addYouthProspect = (youthInfo) => {
     if (!activeSeasonId) return;
     const initOvr = Number(youthInfo.initialOverall) || 64;
@@ -1033,6 +1079,7 @@ export const AppProvider = ({ children }) => {
       clubSeasons,
       currentPlayers,
       currentTransfers,
+      currentShortlist,
       currentYouth,
       currentMatches,
       currentPress,
@@ -1060,6 +1107,9 @@ export const AppProvider = ({ children }) => {
       updatePhaseTactics,
       replicateSquadAcrossPhases,
       addTransfer,
+      addShortlistPlayer,
+      deleteShortlistPlayer,
+      updateShortlistPlayer,
       addYouthProspect,
       updateYouthProspect,
       deleteYouthProspect,
