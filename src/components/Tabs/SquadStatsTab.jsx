@@ -7,6 +7,43 @@ import {
 import { AddPlayerModal } from '../Modals/AddPlayerModal';
 import { UpdateStatsModal } from '../Modals/UpdateStatsModal';
 
+// Football pitch position hierarchy: Portero -> DFC -> Laterales -> MCD -> MC -> Extremos -> DC
+const POSITION_RANK = {
+  // 1. Portero
+  'POR': 1, 'GK': 1, 'PT': 1,
+  
+  // 2. DFC (Defensas Centrales)
+  'DFC': 2, 'CB': 2, 'CEN': 2, 'CENTRAL': 2,
+  
+  // 3. Laterales (Derecho, Izquierdo, Carrileros)
+  'LD': 3, 'CAD': 3, 'RB': 3, 'RWB': 3,
+  'LI': 4, 'CAI': 4, 'LB': 4, 'LWB': 4,
+  
+  // 4. MCD (Pivote defensivo)
+  'MCD': 5, 'CDM': 5, 'DM': 5, 'PIV': 5, 'PIVOTE': 5,
+  
+  // 5. MC (Mediocentros y Mediapuntas)
+  'MC': 6, 'CM': 6, 'MED': 6,
+  'MCO': 7, 'CAM': 7,
+  
+  // 6. Extremos (Bandas y Extremos)
+  'MD': 8, 'RM': 8,
+  'MI': 9, 'LM': 9,
+  'ED': 10, 'RW': 10,
+  'EI': 11, 'LW': 11,
+  'EXT': 10,
+  
+  // 7. DC (Delantero Centro y Segundo Delantero)
+  'SD': 12, 'CF': 12,
+  'DC': 13, 'ST': 13, 'DEL': 13
+};
+
+const getPositionRank = (pos) => {
+  if (!pos) return 99;
+  const upper = String(pos).trim().toUpperCase();
+  return POSITION_RANK[upper] !== undefined ? POSITION_RANK[upper] : 99;
+};
+
 export const SquadStatsTab = () => {
   const { currentPlayers, addPlayer, updatePlayerStats, deletePlayer } = useApp();
 
@@ -24,7 +61,8 @@ export const SquadStatsTab = () => {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortOrder('desc');
+      // For position or name, start with asc (POR -> DC or A -> Z). For numeric stats, start desc.
+      setSortOrder(field === 'position' || field === 'name' ? 'asc' : 'desc');
     }
   };
 
@@ -37,6 +75,17 @@ export const SquadStatsTab = () => {
         return matchesSearch && matchesPos;
       })
       .sort((a, b) => {
+        // Special sorting by tactical position hierarchy
+        if (sortField === 'position') {
+          const rankA = getPositionRank(a.position);
+          const rankB = getPositionRank(b.position);
+          if (rankA !== rankB) {
+            return sortOrder === 'asc' ? (rankA - rankB) : (rankB - rankA);
+          }
+          // Secondary sort: highest overall first
+          return (b.overall || 0) - (a.overall || 0);
+        }
+
         let aVal = a[sortField];
         let bVal = b[sortField];
 
@@ -57,8 +106,8 @@ export const SquadStatsTab = () => {
   }, [currentPlayers, search, positionFilter, sortField, sortOrder]);
 
   const uniquePositions = useMemo(() => {
-    const set = new Set(currentPlayers.map(p => p.position));
-    return Array.from(set);
+    const set = new Set(currentPlayers.map(p => p.position).filter(Boolean));
+    return Array.from(set).sort((a, b) => getPositionRank(a) - getPositionRank(b));
   }, [currentPlayers]);
 
   const handleDelete = (id, name) => {
@@ -144,11 +193,17 @@ export const SquadStatsTab = () => {
                 </th>
 
                 <th onClick={() => handleSort('matches')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
-                  <span>Partidos</span>
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Partidos</span>
+                    {sortField === 'matches' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-slate-300" /> : <ArrowDown className="w-3 h-3 text-slate-300" />)}
+                  </div>
                 </th>
 
                 <th onClick={() => handleSort('minutes')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
-                  <span>Minutos</span>
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Minutos</span>
+                    {sortField === 'minutes' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-slate-300" /> : <ArrowDown className="w-3 h-3 text-slate-300" />)}
+                  </div>
                 </th>
 
                 <th onClick={() => handleSort('goals')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
@@ -166,15 +221,24 @@ export const SquadStatsTab = () => {
                 </th>
 
                 <th onClick={() => handleSort('cleanSheets')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
-                  <span>P. Cero 🧤</span>
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>P. Cero 🧤</span>
+                    {sortField === 'cleanSheets' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-blue-400" /> : <ArrowDown className="w-3 h-3 text-blue-400" />)}
+                  </div>
                 </th>
 
                 <th onClick={() => handleSort('yellowCards')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
-                  <span>Amarillas 🟨</span>
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Amarillas 🟨</span>
+                    {sortField === 'yellowCards' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-amber-400" /> : <ArrowDown className="w-3 h-3 text-amber-400" />)}
+                  </div>
                 </th>
 
                 <th onClick={() => handleSort('redCards')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
-                  <span>Rojas 🟥</span>
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Rojas 🟥</span>
+                    {sortField === 'redCards' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-rose-400" /> : <ArrowDown className="w-3 h-3 text-rose-400" />)}
+                  </div>
                 </th>
 
                 <th className="py-3.5 px-4 text-right">Acciones</th>

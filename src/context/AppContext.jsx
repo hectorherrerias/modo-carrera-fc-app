@@ -635,11 +635,13 @@ export const AppProvider = ({ children }) => {
     if (!activeSeasonId) return;
     const initOvr = Number(youthInfo.initialOverall) || 64;
     const currOvr = Number(youthInfo.currentOverall) || initOvr;
+    const age = Number(youthInfo.age) || 16;
 
     const newYouth = {
       id: "y_" + Date.now(),
       seasonId: activeSeasonId,
       name: youthInfo.name,
+      age: age,
       position: youthInfo.position,
       potential: youthInfo.potential || "85-94",
       initialOverall: initOvr,
@@ -682,6 +684,7 @@ export const AppProvider = ({ children }) => {
       seasonId: activeSeasonId,
       name: youth.name + " (Cantera)",
       position: youth.position,
+      age: youth.age || 17,
       overall: finalOverall,
       stats: { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 }
     };

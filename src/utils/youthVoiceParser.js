@@ -45,9 +45,15 @@ export const parseYouthVoiceDictation = (spokenText) => {
 
   const currentOverall = initialOverall + growth;
 
-  // 4. NAME EXTRACTOR
+  // 4. AGE EXTRACTOR
+  const ageMatch = text.match(/(?:de|edad|tiene)?\s*(\d{2})\s*(?:años|año)/i) ||
+                   text.match(/edad\s*(\d{2})/i);
+  let age = ageMatch ? Number(ageMatch[1]) : 16;
+  if (age < 14 || age > 25) age = 16;
+
+  // 5. NAME EXTRACTOR
   let name = "";
-  const nameMatch = text.match(/(?:añade a|promesa llamada|prospecto llamado|llamado|canterano llamado|jugador|canterano)\s+([a-záéíóúñ\s\.\'-]+?)(?=\s+(?:de|con|potencial|empezo|media|$))/i);
+  const nameMatch = text.match(/(?:añade a|promesa llamada|prospecto llamado|llamado|canterano llamado|jugador|canterano)\s+([a-záéíóúñ\s\.\'-]+?)(?=\s+(?:de\s+\d{2}\s*años|de|con|potencial|empezo|media|edad|$))/i);
   
   if (nameMatch && nameMatch[1]) {
     name = nameMatch[1].replace(/^(un|una|el|la)\s+/i, '').trim();
@@ -59,6 +65,7 @@ export const parseYouthVoiceDictation = (spokenText) => {
 
   return {
     name,
+    age,
     position: foundPosition,
     potential,
     initialOverall,

@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AddYouthModal } from '../Modals/AddYouthModal';
-import { GraduationCap, Plus, Sparkles, TrendingUp, ChevronUp, ChevronDown, UserCheck, Trash2 } from 'lucide-react';
+import { EditYouthModal } from '../Modals/EditYouthModal';
+import { GraduationCap, Plus, Sparkles, TrendingUp, ChevronUp, ChevronDown, UserCheck, Trash2, Edit3 } from 'lucide-react';
 
 export const YouthAcademyTab = () => {
   const { currentYouth, addYouthProspect, updateYouthProspect, deleteYouthProspect, promoteYouthProspect } = useApp();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingYouth, setEditingYouth] = useState(null);
 
   const handleAdjustOverall = (youthId, currentVal, delta) => {
     const newVal = Math.max(40, Math.min(99, Number(currentVal) + delta));
     updateYouthProspect(youthId, { currentOverall: newVal });
+  };
+
+  const handleDelete = (id, name) => {
+    if (window.confirm(`¿Seguro que deseas eliminar a ${name} de la cantera?`)) {
+      deleteYouthProspect(id);
+    }
   };
 
   return (
@@ -24,7 +32,7 @@ export const YouthAcademyTab = () => {
           <div>
             <h3 className="text-2xl font-black text-white font-outfit">Academia de Cantera</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Desarrolla jóvenes promesas, monitorea su incremento de media (+GRL subida) y promuévelos al primer equipo
+              Desarrolla jóvenes promesas, monitorea su edad, incremento de media (+GRL subida) y promuévelos al primer equipo
             </p>
           </div>
         </div>
@@ -44,13 +52,14 @@ export const YouthAcademyTab = () => {
           <div className="col-span-full bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 text-xs space-y-2">
             <GraduationCap className="w-8 h-8 text-slate-600 mx-auto" />
             <p className="font-bold text-slate-300">No hay canteranos reclutados aún en esta temporada.</p>
-            <p>Pulsa en **Reclutar Canterano** para dictar por voz o añadir una joven promesa con su subida de media.</p>
+            <p>Pulsa en **Reclutar Canterano** para dictar por voz o añadir una joven promesa con su edad y subida de media.</p>
           </div>
         ) : (
           currentYouth.map((youth) => {
             const initialOvr = youth.initialOverall || 64;
             const currentOvr = youth.currentOverall || initialOvr;
             const growth = currentOvr - initialOvr;
+            const playerAge = youth.age || 16;
 
             return (
               <div
@@ -63,22 +72,34 @@ export const YouthAcademyTab = () => {
               >
                 {/* Top Badge Strip */}
                 <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className="bg-slate-950 text-emerald-400 font-extrabold text-xs px-2.5 py-1 rounded-xl border border-slate-800">
                       {youth.position}
+                    </span>
+                    <span className="text-[11px] font-bold text-cyan-400 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800">
+                      {playerAge} años
                     </span>
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800">
                       Potencial: <strong className="text-amber-400">{youth.potential}</strong>
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => deleteYouthProspect(youth.id)}
-                    title="Eliminar de la cantera"
-                    className="text-slate-600 hover:text-rose-400 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setEditingYouth(youth)}
+                      title="Editar canterano"
+                      className="p-1 text-slate-500 hover:text-amber-400 rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(youth.id, youth.name)}
+                      title="Eliminar de la cantera"
+                      className="p-1 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Name & Media Subida Highlight */}
@@ -160,6 +181,14 @@ export const YouthAcademyTab = () => {
         onAdd={addYouthProspect}
       />
 
+      <EditYouthModal
+        isOpen={!!editingYouth}
+        onClose={() => setEditingYouth(null)}
+        youth={editingYouth}
+        onUpdate={updateYouthProspect}
+      />
+
     </div>
   );
 };
+

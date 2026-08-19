@@ -4,6 +4,7 @@ import { GraduationCap, X, Check, Mic, MicOff, Sparkles, Bot } from 'lucide-reac
 
 export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
   const [name, setName] = useState('');
+  const [age, setAge] = useState('16');
   const [position, setPosition] = useState('MCO');
   const [potential, setPotential] = useState('85-94');
   const [initialOverall, setInitialOverall] = useState('64');
@@ -24,7 +25,7 @@ export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
       recognition.continuous = false;
 
       setIsListening(true);
-      setVoiceNotice('Escuchando... Di por ejemplo: "Añade a Mateo Fernández de MCO con potencial 85-94, empezó con 62 de media y ha subido 7 puntos"');
+      setVoiceNotice('Escuchando... Di por ejemplo: "Añade a Mateo Fernández de 16 años MCO con potencial 85-94, empezó con 62 de media y ha subido 7 puntos"');
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -32,6 +33,7 @@ export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
 
         if (parsed) {
           if (parsed.name) setName(parsed.name);
+          if (parsed.age) setAge(String(parsed.age));
           if (parsed.position) setPosition(parsed.position);
           if (parsed.potential) setPotential(parsed.potential);
           if (parsed.initialOverall) setInitialOverall(parsed.initialOverall);
@@ -56,12 +58,14 @@ export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
     if (!name.trim()) return;
     onAdd({
       name,
+      age: Number(age) || 16,
       position,
       potential,
       initialOverall: Number(initialOverall) || 64,
       currentOverall: Number(currentOverall) || Number(initialOverall) || 64
     });
     setName('');
+    setAge('16');
     onClose();
   };
 
@@ -122,9 +126,9 @@ export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Posición</label>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Posición</label>
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
@@ -137,7 +141,20 @@ export const AddYouthModal = ({ isOpen, onClose, onAdd }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Rango de Potencial</label>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Edad</label>
+              <input
+                type="number"
+                min="14"
+                max="24"
+                required
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-cyan-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Potencial</label>
               <input
                 type="text"
                 placeholder="85-94"
