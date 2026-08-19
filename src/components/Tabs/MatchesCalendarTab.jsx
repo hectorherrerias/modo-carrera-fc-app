@@ -228,7 +228,7 @@ export const MatchesCalendarTab = () => {
                 key={match.id}
                 className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl transition-all hover:border-slate-700"
               >
-                {/* Match Header Strip: Date, Competition, Result Badge & Actions */}
+                {/* Match Header Strip: Date, Competition, Venue, Result Badge & Actions */}
                 <div className="flex items-center justify-between border-b border-slate-800/60 pb-3 mb-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-bold text-slate-400 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
@@ -236,6 +236,13 @@ export const MatchesCalendarTab = () => {
                     </span>
                     <span className="text-xs font-extrabold text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded-xl border border-emerald-500/30">
                       🏆 {match.competition}
+                    </span>
+                    <span className={`text-xs font-extrabold px-2.5 py-1 rounded-xl border ${
+                      match.venue === 'visitante' 
+                        ? 'bg-cyan-950/60 text-cyan-400 border-cyan-500/30' 
+                        : 'bg-slate-950 text-slate-300 border-slate-800'
+                    }`}>
+                      {match.venue === 'visitante' ? '✈️ Visitante' : '🏠 Local'}
                     </span>
                   </div>
 
@@ -274,7 +281,9 @@ export const MatchesCalendarTab = () => {
                     </div>
                     <div>
                       <h4 className="text-base sm:text-lg font-black text-white font-outfit">{activeClub?.name || 'Tu Club'}</h4>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Local</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        {match.venue === 'visitante' ? 'Visitante' : 'Local'}
+                      </span>
                     </div>
                   </div>
 
@@ -289,7 +298,9 @@ export const MatchesCalendarTab = () => {
                   <div className="flex items-center space-x-3 w-full sm:w-2/5 justify-end text-right">
                     <div>
                       <h4 className="text-base sm:text-lg font-black text-white font-outfit">{match.opponent}</h4>
-                      <span className="text-[10px] uppercase font-bold text-slate-400">Rival</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        {match.venue === 'visitante' ? 'Local' : 'Visitante'}
+                      </span>
                     </div>
                     <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-xl shrink-0">
                       ⚽
@@ -298,9 +309,53 @@ export const MatchesCalendarTab = () => {
 
                 </div>
 
+                {/* Match Key Events: Scorers, Assists & Cards */}
+                {(() => {
+                  const scorers = participants.filter(p => (p.goals || 0) > 0);
+                  const assisters = participants.filter(p => (p.assists || 0) > 0);
+                  const yellowCarded = participants.filter(p => (p.yellowCards || 0) > 0);
+                  const redCarded = participants.filter(p => (p.redCards || 0) > 0);
+
+                  if (scorers.length === 0 && assisters.length === 0 && yellowCarded.length === 0 && redCarded.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="mt-3 pt-3 border-t border-slate-800/60 flex flex-wrap items-center gap-3 text-xs">
+                      {scorers.length > 0 && (
+                        <div className="flex items-center space-x-1 text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-1 rounded-xl">
+                          <span>⚽</span>
+                          <span>{scorers.map(p => `${p.playerName}${p.goals > 1 ? ` (${p.goals})` : ''}`).join(', ')}</span>
+                        </div>
+                      )}
+
+                      {assisters.length > 0 && (
+                        <div className="flex items-center space-x-1 text-cyan-400 font-bold bg-cyan-950/40 border border-cyan-500/30 px-2.5 py-1 rounded-xl">
+                          <span>👟</span>
+                          <span>{assisters.map(p => `${p.playerName}${p.assists > 1 ? ` (${p.assists})` : ''}`).join(', ')}</span>
+                        </div>
+                      )}
+
+                      {yellowCarded.length > 0 && (
+                        <div className="flex items-center space-x-1 text-amber-400 font-bold bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded-xl">
+                          <span>🟨</span>
+                          <span>{yellowCarded.map(p => `${p.playerName}${p.yellowCards > 1 ? ` (${p.yellowCards})` : ''}`).join(', ')}</span>
+                        </div>
+                      )}
+
+                      {redCarded.length > 0 && (
+                        <div className="flex items-center space-x-1 text-rose-400 font-bold bg-rose-950/40 border border-rose-500/30 px-2.5 py-1 rounded-xl">
+                          <span>🟥</span>
+                          <span>{redCarded.map(p => p.playerName).join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* MVPs Strip */}
                 {(officialMVPObj || myMVPObj || match.notes) && (
-                  <div className="mt-4 pt-3 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="mt-3 pt-3 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
                       {officialMVPObj && (
                         <div className="flex items-center space-x-1.5 px-3 py-1 bg-amber-950/60 border border-amber-500/40 rounded-xl text-amber-300 font-bold">
@@ -332,14 +387,14 @@ export const MatchesCalendarTab = () => {
 
                   <button
                     onClick={() => toggleExpand(match.id)}
-                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 transition-colors"
+                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 transition-colors cursor-pointer"
                   >
-                    <span>{isExpanded ? 'Ocultar alineación' : 'Ver minutos jugados'}</span>
+                    <span>{isExpanded ? 'Ocultar alineación' : 'Ver alineación y estadísticas'}</span>
                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
-                {/* Collapsible Participating Players List */}
+                {/* Collapsible Participating Players List with Full Events */}
                 {isExpanded && (
                   <div className="mt-3 p-3 bg-slate-950 rounded-2xl border border-slate-800/80 animate-fade-in">
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -349,7 +404,14 @@ export const MatchesCalendarTab = () => {
                             <span className="text-[10px] font-black text-emerald-400">{p.position}</span>
                             <span className="font-bold text-slate-200 truncate">{p.playerName}</span>
                           </div>
-                          <span className="font-mono font-bold text-cyan-400 ml-1">{p.minutesPlayed}'</span>
+                          
+                          <div className="flex items-center space-x-1 ml-1 shrink-0">
+                            {p.goals > 0 && <span className="text-[10px] font-bold text-emerald-400">⚽{p.goals > 1 ? p.goals : ''}</span>}
+                            {p.assists > 0 && <span className="text-[10px] font-bold text-cyan-400">👟{p.assists > 1 ? p.assists : ''}</span>}
+                            {p.yellowCards > 0 && <span className="text-[10px] font-bold text-amber-400">🟨{p.yellowCards > 1 ? p.yellowCards : ''}</span>}
+                            {p.redCards > 0 && <span className="text-[10px] font-bold text-rose-500">🟥</span>}
+                            <span className="font-mono font-bold text-slate-400">{p.minutesPlayed}'</span>
+                          </div>
                         </div>
                       ))}
                     </div>

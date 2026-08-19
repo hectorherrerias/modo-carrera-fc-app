@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, X, Check, Award, Trophy, Users, Zap, Plus, Minus, Star, Crown } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Calendar, X, Check, Award, Trophy, Users, Zap, Plus, Minus, 
+  Star, Crown, Shield, AlertTriangle, Info, Home, Plane 
+} from 'lucide-react';
 
 export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, activeSeason }) => {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [competition, setCompetition] = useState('');
+  const [venue, setVenue] = useState('local'); // 'local' | 'visitante'
   const [ourGoals, setOurGoals] = useState(2);
   const [opponentGoals, setOpponentGoals] = useState(1);
   const [result, setResult] = useState('V'); // 'V' | 'E' | 'D'
   const [manualResultOverride, setManualResultOverride] = useState(false);
 
-  // Map of playerId -> minutesPlayed (if present, player participated)
-  const [selectedMinutes, setSelectedMinutes] = useState({});
+  // Map of playerId -> { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 }
+  const [playerMatchStats, setPlayerMatchStats] = useState({});
   const [officialMVP, setOfficialMVP] = useState('');
   const [myMVP, setMyMVP] = useState('');
   const [notes, setNotes] = useState('');
@@ -21,6 +25,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
     if (isOpen) {
       setDate(new Date().toISOString().split('T')[0]);
       setOpponent('');
+      setVenue('local');
       setOurGoals(2);
       setOpponentGoals(1);
       setResult('V');
@@ -40,14 +45,14 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       const initialMap = {};
       currentPlayers.forEach(p => {
         if (starterNames.has(p.name)) {
-          initialMap[p.id] = 90;
+          initialMap[p.id] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
         }
       });
-      setSelectedMinutes(initialMap);
+      setPlayerMatchStats(initialMap);
     }
   }, [isOpen, activeSeason, currentPlayers]);
 
-  // Auto-calculate Result V / E / D from score unless manually overridden
+  // Dynamic automatic result calculation (V / E / D) based on goals
   useEffect(() => {
     if (!manualResultOverride) {
       const gOur = Number(ourGoals) || 0;
@@ -58,28 +63,64 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
     }
   }, [ourGoals, opponentGoals, manualResultOverride]);
 
+  // Total goals assigned to players
+  const totalAssignedGoals = useMemo(() => {
+    return Object.values(playerMatchStats).reduce((acc, p) => acc + (Number(p.goals) || 0), 0);
+  }, [playerMatchStats]);
+
+  const teamGoals = Number(ourGoals) || 0;
+  const isCleanSheet = (Number(opponentGoals) || 0) === 0;
+
   if (!isOpen) return null;
 
   const competitionsList = activeSeason?.competitions?.map(c => c.name) || ['LaLiga EA Sports', 'Copa del Rey', 'UEFA Champions League'];
 
   const handleTogglePlayer = (playerId) => {
-    setSelectedMinutes(prev => {
+    setPlayerMatchStats(prev => {
       const updated = { ...prev };
-      if (updated[playerId] !== undefined) {
+      if (updated[playerId]) {
         delete updated[playerId];
       } else {
-        updated[playerId] = 90;
+        updated[playerId] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
       }
       return updated;
     });
   };
 
+  const handleUpdatePlayerField = (playerId, field, delta) => {
+    setPlayerMatchStats(prev => {
+      const current = prev[playerId] || { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+      let newVal = Math.max(0, (Number(current[field]) || 0) + delta);
+      if (field === 'minutes') {
+        newVal = Math.max(1, Math.min(120, newVal));
+      } else if (field === 'yellowCards') {
+        newVal = Math.min(2, newVal);
+      } else if (field === 'redCards') {
+        newVal = Math.min(1, newVal);
+      }
+
+      return {
+        ...prev,
+        [playerId]: {
+          ...current,
+          [field]: newVal
+        }
+      };
+    });
+  };
+
   const handleSetMinutes = (playerId, mins) => {
     const val = Math.max(1, Math.min(120, Number(mins) || 0));
-    setSelectedMinutes(prev => ({
-      ...prev,
-      [playerId]: val
-    }));
+    setPlayerMatchStats(prev => {
+      const current = prev[playerId] || { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
+      return {
+        ...prev,
+        [playerId]: {
+          ...current,
+          minutes: val
+        }
+      };
+    });
   };
 
   const handleLoadStarters = () => {
@@ -89,30 +130,30 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
     const newMap = {};
     currentPlayers.forEach(p => {
       if (starterNames.has(p.name)) {
-        newMap[p.id] = 90;
+        newMap[p.id] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
       }
     });
 
     // If startingXI had no names assigned yet, pick first 11 players
     if (Object.keys(newMap).length === 0) {
       currentPlayers.slice(0, 11).forEach(p => {
-        newMap[p.id] = 90;
+        newMap[p.id] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
       });
     }
 
-    setSelectedMinutes(newMap);
+    setPlayerMatchStats(newMap);
   };
 
   const handleSelectAll = () => {
     const newMap = {};
     currentPlayers.forEach(p => {
-      newMap[p.id] = 90;
+      newMap[p.id] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
     });
-    setSelectedMinutes(newMap);
+    setPlayerMatchStats(newMap);
   };
 
   const handleDeselectAll = () => {
-    setSelectedMinutes({});
+    setPlayerMatchStats({});
   };
 
   const handleSubmit = (e) => {
@@ -124,13 +165,17 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
 
     const scoreString = `${Number(ourGoals) || 0} - ${Number(opponentGoals) || 0}`;
 
-    const playersInvolved = Object.entries(selectedMinutes).map(([playerId, minutes]) => {
+    const playersInvolved = Object.entries(playerMatchStats).map(([playerId, pStats]) => {
       const pObj = currentPlayers.find(p => p.id === playerId);
       return {
         playerId,
         playerName: pObj ? pObj.name : 'Jugador',
         position: pObj ? pObj.position : 'DC',
-        minutesPlayed: Number(minutes) || 90
+        minutesPlayed: Number(pStats.minutes) || 90,
+        goals: Number(pStats.goals) || 0,
+        assists: Number(pStats.assists) || 0,
+        yellowCards: Number(pStats.yellowCards) || 0,
+        redCards: Number(pStats.redCards) || 0
       };
     });
 
@@ -138,8 +183,11 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       date,
       opponent: opponent.trim(),
       competition,
+      venue,
       result,
       score: scoreString,
+      ourGoals: Number(ourGoals) || 0,
+      opponentGoals: Number(opponentGoals) || 0,
       playersInvolved,
       officialMVP: officialMVP || null,
       myMVP: myMVP || null,
@@ -149,11 +197,11 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
     onClose();
   };
 
-  const participatingCount = Object.keys(selectedMinutes).length;
+  const participatingCount = Object.keys(playerMatchStats).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+      <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden max-h-[94vh] flex flex-col">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
@@ -163,7 +211,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             </div>
             <div>
               <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit">Registrar Nuevo Partido</h3>
-              <p className="text-[11px] text-slate-400">Suma automáticamente minutos, partidos y MVPs a tu plantilla</p>
+              <p className="text-[11px] text-slate-400">Automatiza minutos, goles, asistencias, tarjetas y porterías a cero</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
@@ -174,8 +222,8 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
-          {/* Match Basic Details: Date, Competition, Opponent */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Match Basic Details: Date, Competition, Opponent, Venue */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Fecha</label>
               <input
@@ -188,12 +236,42 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             </div>
 
             <div>
+              <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Condición</label>
+              <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setVenue('local')}
+                  className={`flex items-center justify-center space-x-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                    venue === 'local' 
+                      ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Local</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVenue('visitante')}
+                  className={`flex items-center justify-center space-x-1 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                    venue === 'visitante' 
+                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Plane className="w-3.5 h-3.5" />
+                  <span>Visita</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Competición</label>
               <input
                 type="text"
                 list="comp-list"
                 required
-                placeholder="LaLiga, Copa, Champions..."
+                placeholder="LaLiga, Champions..."
                 value={competition}
                 onChange={(e) => setCompetition(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
@@ -210,7 +288,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
               <input
                 type="text"
                 required
-                placeholder="Ej. FC Barcelona, Sevilla..."
+                placeholder="Ej. FC Barcelona..."
                 value={opponent}
                 onChange={(e) => setOpponent(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold focus:outline-none focus:border-emerald-500"
@@ -221,16 +299,21 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
           {/* Score & Result Box */}
           <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             
-            {/* Score Inputs */}
+            {/* Score Inputs with Home/Away label orientation */}
             <div className="flex items-center space-x-3">
               <div className="text-center">
-                <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">Tu Club</span>
+                <span className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">
+                  Tu Club {venue === 'local' ? '(Local)' : '(Visitante)'}
+                </span>
                 <input
                   type="number"
                   min="0"
                   max="30"
                   value={ourGoals}
-                  onChange={(e) => setOurGoals(e.target.value)}
+                  onChange={(e) => {
+                    setOurGoals(e.target.value);
+                    setManualResultOverride(false);
+                  }}
                   className="w-14 h-11 text-center bg-slate-900 border border-slate-700 rounded-xl text-xl font-black text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
@@ -238,27 +321,32 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
               <span className="text-lg font-black text-slate-500 mt-4">-</span>
 
               <div className="text-center">
-                <span className="text-[10px] uppercase font-bold text-rose-400 block mb-1">Rival</span>
+                <span className="text-[10px] uppercase font-bold text-rose-400 block mb-1">
+                  Rival {venue === 'local' ? '(Visitante)' : '(Local)'}
+                </span>
                 <input
                   type="number"
                   min="0"
                   max="30"
                   value={opponentGoals}
-                  onChange={(e) => setOpponentGoals(e.target.value)}
+                  onChange={(e) => {
+                    setOpponentGoals(e.target.value);
+                    setManualResultOverride(false);
+                  }}
                   className="w-14 h-11 text-center bg-slate-900 border border-slate-700 rounded-xl text-xl font-black text-white focus:border-rose-500 focus:outline-none"
                 />
               </div>
             </div>
 
-            {/* Result Selector (V / E / D) */}
+            {/* Auto-selected Result Selector (V / E / D) */}
             <div className="flex flex-col items-center sm:items-end">
-              <span className="text-[10px] uppercase font-bold text-slate-400 mb-1">Resultado Final</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 mb-1">Resultado (Auto)</span>
               <div className="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
                   onClick={() => { setResult('V'); setManualResultOverride(true); }}
                   className={`px-3 py-1.5 rounded-lg font-black text-xs transition-all ${
-                    result === 'V' ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' : 'text-slate-400 hover:text-white'
+                    result === 'V' ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 scale-105' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   V (Victoria)
@@ -267,7 +355,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
                   type="button"
                   onClick={() => { setResult('E'); setManualResultOverride(true); }}
                   className={`px-3 py-1.5 rounded-lg font-black text-xs transition-all ${
-                    result === 'E' ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20' : 'text-slate-400 hover:text-white'
+                    result === 'E' ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 scale-105' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   E (Empate)
@@ -276,7 +364,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
                   type="button"
                   onClick={() => { setResult('D'); setManualResultOverride(true); }}
                   className={`px-3 py-1.5 rounded-lg font-black text-xs transition-all ${
-                    result === 'D' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'text-slate-400 hover:text-white'
+                    result === 'D' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20 scale-105' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   D (Derrota)
@@ -285,6 +373,16 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             </div>
 
           </div>
+
+          {/* Clean Sheet Automation Notice (if rival scored 0) */}
+          {isCleanSheet && (
+            <div className="p-3 bg-cyan-950/70 border border-cyan-500/40 rounded-2xl flex items-center space-x-2.5 text-cyan-200 text-xs">
+              <Shield className="w-4 h-4 text-cyan-400 shrink-0" />
+              <p>
+                <strong>🛡️ Portería a Cero detectada:</strong> Se sumará automáticamente <strong>+1 Portería a Cero</strong> a los porteros (POR) y defensas (DFC, LD, LI, CAD, CAI) que jueguen <strong>60 minutos o más</strong>.
+              </p>
+            </div>
+          )}
 
           {/* MVPs Section */}
           <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4">
@@ -334,7 +432,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             </div>
           </div>
 
-          {/* Players Participation & Minutes Selector */}
+          {/* Players Participation & Individual Match Stats (Minutos, Goles, Asistencias, Tarjetas) */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
               <div>
@@ -342,7 +440,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
                   <Users className="w-4 h-4 text-emerald-400" />
                   <span>Jugadores Participantes ({participatingCount} seleccionados)</span>
                 </h4>
-                <p className="text-[10px] text-slate-400">Marca quién jugó y asigna sus minutos (sumarán automáticamente a la plantilla)</p>
+                <p className="text-[10px] text-slate-400">Marca los participantes y registra sus minutos, goles, asistencias y tarjetas</p>
               </div>
 
               {/* Quick Select Buttons */}
@@ -354,7 +452,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
                   title="Seleccionar los 11 titulares de la táctica con 90 minutos"
                 >
                   <Zap className="w-3 h-3" />
-                  <span>⚡ 11 Titular (90')</span>
+                  <span>⚡ 11 Titular</span>
                 </button>
                 <button
                   type="button"
@@ -373,87 +471,207 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
               </div>
             </div>
 
-            {/* Players List Grid */}
-            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-800/40">
+            {/* Visual Goals Validator Banner */}
+            <div className={`p-2.5 rounded-xl border flex items-center justify-between transition-all ${
+              totalAssignedGoals === teamGoals
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                : totalAssignedGoals > teamGoals
+                  ? 'bg-rose-950/80 border-rose-500/50 text-rose-300 animate-pulse'
+                  : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+            }`}>
+              <div className="flex items-center space-x-2">
+                {totalAssignedGoals === teamGoals ? (
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : totalAssignedGoals > teamGoals ? (
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                ) : (
+                  <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                )}
+                <span className="font-extrabold text-[11px]">
+                  Goles asignados a jugadores: {totalAssignedGoals} de {teamGoals} ⚽
+                </span>
+              </div>
+
+              <span className="text-[10px] font-bold">
+                {totalAssignedGoals === teamGoals && '✅ Cuadre exacto'}
+                {totalAssignedGoals > teamGoals && `⚠️ Exceso de ${totalAssignedGoals - teamGoals} gol(es)`}
+                {totalAssignedGoals < teamGoals && `ℹ️ ${teamGoals - totalAssignedGoals} gol(es) restante(s) o autogol`}
+              </span>
+            </div>
+
+            {/* Players List Grid with Individual Counters */}
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-800/40">
               {currentPlayers.length === 0 ? (
                 <p className="text-center text-slate-500 py-4 text-xs">No hay jugadores registrados en la plantilla.</p>
               ) : (
                 currentPlayers.map(player => {
-                  const isSelected = selectedMinutes[player.id] !== undefined;
-                  const mins = selectedMinutes[player.id] || 90;
+                  const pData = playerMatchStats[player.id];
+                  const isSelected = pData !== undefined;
+                  const mins = pData?.minutes || 90;
+                  const goals = pData?.goals || 0;
+                  const assists = pData?.assists || 0;
+                  const yellowCards = pData?.yellowCards || 0;
+                  const redCards = pData?.redCards || 0;
 
                   return (
                     <div
                       key={player.id}
-                      className={`flex items-center justify-between p-2 rounded-xl transition-all ${
-                        isSelected ? 'bg-slate-950 border border-slate-800' : 'hover:bg-slate-800/30 opacity-75'
+                      className={`pt-2 p-2.5 rounded-2xl transition-all ${
+                        isSelected 
+                          ? 'bg-slate-950 border border-slate-800/90 shadow-md' 
+                          : 'hover:bg-slate-800/30 opacity-75'
                       }`}
                     >
-                      {/* Checkbox & Player Info */}
-                      <label className="flex items-center space-x-2.5 cursor-pointer flex-1 select-none">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleTogglePlayer(player.id)}
-                          className="w-4 h-4 rounded border-slate-700 text-emerald-500 focus:ring-0 bg-slate-900 cursor-pointer"
-                        />
-                        <span className="bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-[10px] font-black text-emerald-400">
-                          {player.position}
-                        </span>
-                        <span className="font-extrabold text-white text-xs">{player.name}</span>
-                        <span className="text-[10px] font-bold text-amber-400">{player.overall} GRL</span>
-                      </label>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                        
+                        {/* Checkbox & Player Info */}
+                        <label className="flex items-center space-x-2.5 cursor-pointer select-none min-w-[180px]">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleTogglePlayer(player.id)}
+                            className="w-4 h-4 rounded border-slate-700 text-emerald-500 focus:ring-0 bg-slate-900 cursor-pointer"
+                          />
+                          <span className="bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-[10px] font-black text-emerald-400">
+                            {player.position}
+                          </span>
+                          <span className="font-extrabold text-white text-xs">{player.name}</span>
+                          <span className="text-[10px] font-bold text-amber-400">{player.overall}</span>
+                        </label>
 
-                      {/* Minutes input & presets when selected */}
-                      {isSelected && (
-                        <div className="flex items-center space-x-1.5 shrink-0">
-                          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => handleSetMinutes(player.id, mins - 15)}
-                              className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
-                              title="Restar 15 min"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <input
-                              type="number"
-                              min="1"
-                              max="120"
-                              value={mins}
-                              onChange={(e) => handleSetMinutes(player.id, e.target.value)}
-                              className="w-10 text-center bg-transparent text-white font-bold text-xs focus:outline-none"
-                            />
-                            <span className="text-[10px] text-slate-500 pr-1">min</span>
-                            <button
-                              type="button"
-                              onClick={() => handleSetMinutes(player.id, mins + 15)}
-                              className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
-                              title="Sumar 15 min"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-
-                          {/* Quick Minute Preset Tags */}
-                          <div className="hidden sm:flex items-center space-x-1">
-                            {[90, 60, 45, 30].map(m => (
+                        {/* Interactive Stats Counters for this Player */}
+                        {isSelected && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            
+                            {/* Minutes Counter */}
+                            <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
                               <button
-                                key={m}
                                 type="button"
-                                onClick={() => handleSetMinutes(player.id, m)}
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold border transition-colors ${
-                                  mins === m 
-                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' 
-                                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
-                                }`}
+                                onClick={() => handleUpdatePlayerField(player.id, 'minutes', -15)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                                title="Restar 15 min"
                               >
-                                {m}'
+                                <Minus className="w-3 h-3" />
                               </button>
-                            ))}
+                              <input
+                                type="number"
+                                min="1"
+                                max="120"
+                                value={mins}
+                                onChange={(e) => handleSetMinutes(player.id, e.target.value)}
+                                className="w-9 text-center bg-transparent text-white font-bold text-xs focus:outline-none"
+                              />
+                              <span className="text-[9px] text-slate-500 pr-1">min</span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'minutes', 15)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                                title="Sumar 15 min"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Goals Counter ⚽ */}
+                            <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${
+                              goals > 0 ? 'bg-emerald-950/80 border-emerald-500/50' : 'bg-slate-900 border-slate-700'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'goals', -1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+                              <span className={`px-1 font-black text-xs flex items-center space-x-0.5 ${goals > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                <span>⚽</span>
+                                <span>{goals}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'goals', 1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            {/* Assists Counter 👟 */}
+                            <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${
+                              assists > 0 ? 'bg-cyan-950/80 border-cyan-500/50' : 'bg-slate-900 border-slate-700'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'assists', -1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+                              <span className={`px-1 font-black text-xs flex items-center space-x-0.5 ${assists > 0 ? 'text-cyan-400' : 'text-slate-400'}`}>
+                                <span>👟</span>
+                                <span>{assists}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'assists', 1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            {/* Yellow Cards Counter 🟨 */}
+                            <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${
+                              yellowCards > 0 ? 'bg-amber-950/80 border-amber-500/50' : 'bg-slate-900 border-slate-700'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'yellowCards', -1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+                              <span className={`px-1 font-black text-xs flex items-center space-x-0.5 ${yellowCards > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                <span>🟨</span>
+                                <span>{yellowCards}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'yellowCards', 1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
+                            {/* Red Cards Counter 🟥 */}
+                            <div className={`flex items-center border rounded-xl overflow-hidden transition-colors ${
+                              redCards > 0 ? 'bg-rose-950/80 border-rose-500/50' : 'bg-slate-900 border-slate-700'
+                            }`}>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'redCards', -1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Minus className="w-2.5 h-2.5" />
+                              </button>
+                              <span className={`px-1 font-black text-xs flex items-center space-x-0.5 ${redCards > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                <span>🟥</span>
+                                <span>{redCards}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdatePlayerField(player.id, 'redCards', 1)}
+                                className="px-1.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+
                           </div>
-                        </div>
-                      )}
+                        )}
+
+                      </div>
                     </div>
                   );
                 })
@@ -466,13 +684,13 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white rounded-xl border border-slate-800 hover:bg-slate-800"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white rounded-xl border border-slate-800 hover:bg-slate-800 cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1.5"
+              className="px-6 py-2.5 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1.5 cursor-pointer"
             >
               <Check className="w-4 h-4" />
               <span>Guardar Partido y Actualizar Plantilla</span>

@@ -539,18 +539,40 @@ export const AppProvider = ({ children }) => {
       date: matchData.date || new Date().toLocaleDateString('es-ES'),
       opponent: matchData.opponent || 'Rival',
       competition: matchData.competition || 'LaLiga EA Sports',
+      venue: matchData.venue || 'local', // 'local' | 'visitante'
       result: matchData.result || 'V', // 'V' | 'E' | 'D'
       score: matchData.score || '1 - 0',
-      playersInvolved: matchData.playersInvolved || [], // [{ playerId, playerName, position, minutesPlayed }]
+      ourGoals: Number(matchData.ourGoals) >= 0 ? Number(matchData.ourGoals) : 1,
+      opponentGoals: Number(matchData.opponentGoals) >= 0 ? Number(matchData.opponentGoals) : 0,
+      playersInvolved: matchData.playersInvolved || [], // [{ playerId, playerName, position, minutesPlayed, goals, assists, yellowCards, redCards }]
       officialMVP: matchData.officialMVP || null,
       myMVP: matchData.myMVP || null,
       notes: matchData.notes || ''
     };
 
+    // Extract goals against to check for Portería a Cero (rival goals === 0)
+    let rivalGoals = newMatch.opponentGoals;
+    if (matchData.score && matchData.score.includes('-')) {
+      const parts = matchData.score.split('-').map(s => Number(s.trim()) || 0);
+      if (parts.length === 2) {
+        rivalGoals = parts[1];
+      }
+    }
+    const isCleanSheetMatch = rivalGoals === 0;
+
+    // GK and Defender positions eligible for clean sheets if playing >= 60 minutes
+    const cleanSheetPositions = new Set(['POR', 'GK', 'PT', 'DFC', 'CB', 'CENTRAL', 'LD', 'LI', 'CAD', 'CAI', 'RB', 'LB', 'RWB', 'LWB']);
+
     const playersInvolvedMap = new Map();
     (matchData.playersInvolved || []).forEach(p => {
       if (p.playerId) {
-        playersInvolvedMap.set(p.playerId, Number(p.minutesPlayed) || 90);
+        playersInvolvedMap.set(p.playerId, {
+          minutesPlayed: Number(p.minutesPlayed) || 90,
+          goals: Number(p.goals) || 0,
+          assists: Number(p.assists) || 0,
+          yellowCards: Number(p.yellowCards) || 0,
+          redCards: Number(p.redCards) || 0
+        });
       }
     });
 
@@ -571,13 +593,25 @@ export const AppProvider = ({ children }) => {
         return s;
       });
 
-      // 2. Update players: stats.matches (+1), stats.minutes (+minutesPlayed), officialMVPs (+1), myMVPs (+1)
+      // 2. Update players: stats (matches, minutes, goals, assists, yellowCards, redCards, cleanSheets), MVPs
       const updatedPlayers = prev.players.map(p => {
         if (p.seasonId !== activeSeasonId) return p;
 
         const isParticipant = playersInvolvedMap.has(p.id);
-        const minutesToAdd = isParticipant ? playersInvolvedMap.get(p.id) : 0;
+        const pData = isParticipant ? playersInvolvedMap.get(p.id) : null;
+        
+        const minutesToAdd = pData ? pData.minutesPlayed : 0;
         const matchesToAdd = isParticipant ? 1 : 0;
+        const goalsToAdd = pData ? pData.goals : 0;
+        const assistsToAdd = pData ? pData.assists : 0;
+        const yellowCardsToAdd = pData ? pData.yellowCards : 0;
+        const redCardsToAdd = pData ? pData.redCards : 0;
+
+        // Clean sheet automation: rival scored 0, player is POR or DEF, played >= 60 min
+        const pPos = (p.position || '').toUpperCase();
+        const isEligibleDefOrGk = cleanSheetPositions.has(pPos);
+        const cleanSheetToAdd = (isCleanSheetMatch && isEligibleDefOrGk && minutesToAdd >= 60) ? 1 : 0;
+
         const isOfficialMVP = matchData.officialMVP === p.id;
         const isMyMVP = matchData.myMVP === p.id;
 
@@ -590,7 +624,12 @@ export const AppProvider = ({ children }) => {
             stats: {
               ...currentStats,
               matches: (currentStats.matches || 0) + matchesToAdd,
-              minutes: (currentStats.minutes || 0) + minutesToAdd
+              minutes: (currentStats.minutes || 0) + minutesToAdd,
+              goals: (currentStats.goals || 0) + goalsToAdd,
+              assists: (currentStats.assists || 0) + assistsToAdd,
+              yellowCards: (currentStats.yellowCards || 0) + yellowCardsToAdd,
+              redCards: (currentStats.redCards || 0) + redCardsToAdd,
+              cleanSheets: (currentStats.cleanSheets || 0) + cleanSheetToAdd
             }
           };
         }
