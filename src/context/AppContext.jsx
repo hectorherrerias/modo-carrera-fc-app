@@ -265,6 +265,7 @@ export const AppProvider = ({ children }) => {
   const currentPlayers = data.players?.filter(p => p.seasonId === activeSeasonId) || [];
   const currentTransfers = data.transfers?.filter(t => t.seasonId === activeSeasonId) || [];
   const currentYouth = data.youthAcademy?.filter(y => y.seasonId === activeSeasonId) || [];
+  const currentMatches = data.matches?.filter(m => m.seasonId === activeSeasonId) || [];
   const currentPress = (data.pressConferences || []).filter(p => p.seasonId === activeSeasonId);
   const currentNews = (data.newsArticles || []).filter(n => n.seasonId === activeSeasonId);
 
@@ -390,6 +391,7 @@ export const AppProvider = ({ children }) => {
       const remainingPlayers = prev.players.filter(p => p.seasonId !== seasonId);
       const remainingTransfers = prev.transfers.filter(t => t.seasonId !== seasonId);
       const remainingYouth = prev.youthAcademy.filter(y => y.seasonId !== seasonId);
+      const remainingMatches = (prev.matches || []).filter(m => m.seasonId !== seasonId);
       const remainingPress = (prev.pressConferences || []).filter(p => p.seasonId !== seasonId);
       const remainingNews = (prev.newsArticles || []).filter(n => n.seasonId !== seasonId);
 
@@ -399,6 +401,7 @@ export const AppProvider = ({ children }) => {
         players: remainingPlayers,
         transfers: remainingTransfers,
         youthAcademy: remainingYouth,
+        matches: remainingMatches,
         pressConferences: remainingPress,
         newsArticles: remainingNews
       };
@@ -448,6 +451,10 @@ export const AppProvider = ({ children }) => {
         ...p,
         id: "p_" + Math.random().toString(36).substr(2, 9),
         seasonId: seasonId,
+        contractYears: p.contractYears !== undefined ? Math.max(0, p.contractYears - 1) : 2,
+        status: "Disponible",
+        officialMVPs: 0,
+        myMVPs: 0,
         stats: { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 }
       }));
     }
@@ -469,6 +476,10 @@ export const AppProvider = ({ children }) => {
       name: playerInfo.name,
       position: playerInfo.position,
       overall: Number(playerInfo.overall) || 75,
+      contractYears: Number(playerInfo.contractYears) >= 0 ? Number(playerInfo.contractYears) : 3,
+      status: playerInfo.status || "Disponible",
+      officialMVPs: Number(playerInfo.officialMVPs) || 0,
+      myMVPs: Number(playerInfo.myMVPs) || 0,
       stats: {
         minutes: Number(playerInfo.minutes) || 0,
         matches: Number(playerInfo.matches) || 0,
@@ -496,6 +507,10 @@ export const AppProvider = ({ children }) => {
             name: updatedStats.name !== undefined ? updatedStats.name : p.name,
             position: updatedStats.position !== undefined ? updatedStats.position : p.position,
             overall: updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall,
+            contractYears: updatedStats.contractYears !== undefined ? Number(updatedStats.contractYears) : (p.contractYears ?? 3),
+            status: updatedStats.status !== undefined ? updatedStats.status : (p.status || "Disponible"),
+            officialMVPs: updatedStats.officialMVPs !== undefined ? Number(updatedStats.officialMVPs) : (p.officialMVPs || 0),
+            myMVPs: updatedStats.myMVPs !== undefined ? Number(updatedStats.myMVPs) : (p.myMVPs || 0),
             stats: {
               ...p.stats,
               ...updatedStats.stats
@@ -511,6 +526,97 @@ export const AppProvider = ({ children }) => {
     setData(prev => ({
       ...prev,
       players: prev.players.filter(p => p.id !== playerId)
+    }));
+  };
+
+  // Match Tracking & Automated Stats Updating
+  const addMatch = (matchData) => {
+    if (!activeSeasonId) return;
+    const matchId = "m_" + Date.now();
+    const newMatch = {
+      id: matchId,
+      seasonId: activeSeasonId,
+      date: matchData.date || new Date().toLocaleDateString('es-ES'),
+      opponent: matchData.opponent || 'Rival',
+      competition: matchData.competition || 'LaLiga EA Sports',
+      result: matchData.result || 'V', // 'V' | 'E' | 'D'
+      score: matchData.score || '1 - 0',
+      playersInvolved: matchData.playersInvolved || [], // [{ playerId, playerName, position, minutesPlayed }]
+      officialMVP: matchData.officialMVP || null,
+      myMVP: matchData.myMVP || null,
+      notes: matchData.notes || ''
+    };
+
+    const playersInvolvedMap = new Map();
+    (matchData.playersInvolved || []).forEach(p => {
+      if (p.playerId) {
+        playersInvolvedMap.set(p.playerId, Number(p.minutesPlayed) || 90);
+      }
+    });
+
+    setData(prev => {
+      // 1. Update match results in active season (wins, draws, losses)
+      const resKey = newMatch.result === 'V' ? 'wins' : (newMatch.result === 'E' ? 'draws' : 'losses');
+      const updatedSeasons = prev.seasons.map(s => {
+        if (s.id === activeSeasonId) {
+          const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
+          return {
+            ...s,
+            matchResults: {
+              ...currentResults,
+              [resKey]: (currentResults[resKey] || 0) + 1
+            }
+          };
+        }
+        return s;
+      });
+
+      // 2. Update players: stats.matches (+1), stats.minutes (+minutesPlayed), officialMVPs (+1), myMVPs (+1)
+      const updatedPlayers = prev.players.map(p => {
+        if (p.seasonId !== activeSeasonId) return p;
+
+        const isParticipant = playersInvolvedMap.has(p.id);
+        const minutesToAdd = isParticipant ? playersInvolvedMap.get(p.id) : 0;
+        const matchesToAdd = isParticipant ? 1 : 0;
+        const isOfficialMVP = matchData.officialMVP === p.id;
+        const isMyMVP = matchData.myMVP === p.id;
+
+        if (isParticipant || isOfficialMVP || isMyMVP) {
+          const currentStats = p.stats || { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 };
+          return {
+            ...p,
+            officialMVPs: (p.officialMVPs || 0) + (isOfficialMVP ? 1 : 0),
+            myMVPs: (p.myMVPs || 0) + (isMyMVP ? 1 : 0),
+            stats: {
+              ...currentStats,
+              matches: (currentStats.matches || 0) + matchesToAdd,
+              minutes: (currentStats.minutes || 0) + minutesToAdd
+            }
+          };
+        }
+        return p;
+      });
+
+      return {
+        ...prev,
+        seasons: updatedSeasons,
+        players: updatedPlayers,
+        matches: [newMatch, ...(prev.matches || [])]
+      };
+    });
+  };
+
+  const deleteMatch = (matchId) => {
+    setData(prev => ({
+      ...prev,
+      matches: (prev.matches || []).filter(m => m.id !== matchId)
+    }));
+  };
+
+  const updateMatch = (matchId, updatedFields) => {
+    setData(prev => ({
+      ...prev,
+      matches: (prev.matches || []).map(m => m.id === matchId ? { ...m, ...updatedFields } : m)
     }));
   };
 
@@ -889,6 +995,7 @@ export const AppProvider = ({ children }) => {
       currentPlayers,
       currentTransfers,
       currentYouth,
+      currentMatches,
       currentPress,
       currentNews,
       computedWinRate,
@@ -908,6 +1015,9 @@ export const AppProvider = ({ children }) => {
       addPlayer,
       updatePlayerStats,
       deletePlayer,
+      addMatch,
+      deleteMatch,
+      updateMatch,
       updatePhaseTactics,
       replicateSquadAcrossPhases,
       addTransfer,

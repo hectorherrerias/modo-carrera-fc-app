@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { LayoutGrid, Users, Trophy, ArrowLeftRight, GraduationCap, Mic, Newspaper, Calendar, Edit3, Landmark, Plus, Minus, Percent } from 'lucide-react';
+import { LayoutGrid, Users, Trophy, ArrowLeftRight, GraduationCap, Mic, Newspaper, Calendar, Edit3, Landmark, Plus, Minus, Percent, Flame } from 'lucide-react';
 import { TacticsTab } from '../components/Tabs/TacticsTab';
 import { SquadStatsTab } from '../components/Tabs/SquadStatsTab';
+import { MatchesCalendarTab } from '../components/Tabs/MatchesCalendarTab';
 import { CompetitionsTab } from '../components/Tabs/CompetitionsTab';
 import { TransfersTab } from '../components/Tabs/TransfersTab';
 import { YouthAcademyTab } from '../components/Tabs/YouthAcademyTab';
@@ -14,7 +15,7 @@ import { ClubLogo } from '../components/ClubLogo';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 
 export const SeasonDashboardView = () => {
-  const { activeClub, activeSeason, updateClub, updateSeason, deleteSeason, clubSeasons, recordMatchResult, computedWinRate } = useApp();
+  const { activeClub, activeSeason, updateClub, updateSeason, deleteSeason, clubSeasons, recordMatchResult, computedWinRate, currentMatches } = useApp();
   const [activeTab, setActiveTab] = useState('tactics');
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
   const [isEditSeasonModalOpen, setIsEditSeasonModalOpen] = useState(false);
@@ -36,6 +37,7 @@ export const SeasonDashboardView = () => {
   const tabs = [
     { id: 'tactics', label: 'Táctica y 11 de Gala', icon: LayoutGrid },
     { id: 'stats', label: 'Estadísticas de Plantilla', icon: Users },
+    { id: 'matches', label: 'Calendario y Partidos', icon: Calendar },
     { id: 'competitions', label: 'Competiciones y Premios', icon: Trophy },
     { id: 'transfers', label: 'Mercado y Finanzas', icon: ArrowLeftRight },
     { id: 'youth', label: 'Cantera', icon: GraduationCap },
@@ -173,6 +175,43 @@ export const SeasonDashboardView = () => {
 
           </div>
 
+          {/* Form Streak (Last 5 matches) Indicator */}
+          <div className="bg-slate-950/90 border border-slate-800 px-3.5 py-2.5 rounded-2xl flex flex-col justify-center items-center shadow-xl">
+            <span className="text-[9px] font-black uppercase text-slate-400 flex items-center space-x-1 mb-1.5">
+              <Flame className="w-3 h-3 text-amber-400" />
+              <span>Estado de Forma</span>
+            </span>
+            
+            <div className="flex items-center space-x-1.5">
+              {(() => {
+                // Show last 5 matches (most recent on the right)
+                const recent5 = (currentMatches || []).slice(0, 5).reverse();
+                if (recent5.length === 0) {
+                  return <span className="text-[10px] text-slate-500 font-bold px-2 py-0.5">Sin partidos</span>;
+                }
+
+                return recent5.map((m, idx) => {
+                  const res = m.result;
+                  let badgeColor = 'bg-slate-800 text-slate-400 border-slate-700';
+                  if (res === 'V') badgeColor = 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm shadow-emerald-500/30';
+                  else if (res === 'E') badgeColor = 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm shadow-amber-500/30';
+                  else if (res === 'D') badgeColor = 'bg-rose-500 text-white border-rose-400 shadow-sm shadow-rose-500/30';
+
+                  return (
+                    <div
+                      key={m.id || idx}
+                      title={`${m.result === 'V' ? 'Victoria' : m.result === 'E' ? 'Empate' : 'Derrota'} vs ${m.opponent} (${m.score})`}
+                      className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] border ${badgeColor} transition-transform hover:scale-110 cursor-help`}
+                    >
+                      {res}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+            <span className="text-[8px] text-slate-500 font-extrabold uppercase mt-1 tracking-wider">Últimos 5 Partidos</span>
+          </div>
+
           {/* Win Rate Percentage Card */}
           <div className="bg-slate-950/90 border border-slate-800 px-4 py-2.5 rounded-2xl text-center flex flex-col justify-center">
             <span className="text-[9px] font-black uppercase text-slate-400 flex items-center justify-center space-x-1">
@@ -217,6 +256,7 @@ export const SeasonDashboardView = () => {
       <div className="pt-1 sm:pt-2">
         {activeTab === 'tactics' && <TacticsTab />}
         {activeTab === 'stats' && <SquadStatsTab />}
+        {activeTab === 'matches' && <MatchesCalendarTab />}
         {activeTab === 'competitions' && <CompetitionsTab />}
         {activeTab === 'transfers' && <TransfersTab />}
         {activeTab === 'youth' && <YouthAcademyTab />}

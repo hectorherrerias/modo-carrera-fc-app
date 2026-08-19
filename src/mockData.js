@@ -58,5 +58,6 @@ export const INITIAL_DATA = {
   // Empty player squad by default so user can enter all players manually
   players: [],
   transfers: [],
-  youthAcademy: []
+  youthAcademy: [],
+  matches: []
 };

@@ -1,14 +1,14 @@
 import React from 'react';
-import { LayoutGrid, Users, Trophy, ArrowLeftRight, GraduationCap, Mic, Newspaper } from 'lucide-react';
+import { LayoutGrid, Users, Calendar, Trophy, ArrowLeftRight, GraduationCap, Mic, Newspaper } from 'lucide-react';
 
 export const MobileBottomNav = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'tactics', label: 'Táctica', icon: LayoutGrid },
     { id: 'stats', label: 'Plantilla', icon: Users },
+    { id: 'matches', label: 'Partidos', icon: Calendar },
     { id: 'competitions', label: 'Ligas', icon: Trophy },
     { id: 'transfers', label: 'Fichajes', icon: ArrowLeftRight },
     { id: 'youth', label: 'Cantera', icon: GraduationCap },
-    { id: 'press', label: 'Prensa', icon: Mic },
   ];
 
   return (

@@ -15,12 +15,20 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [overall, setOverall] = useState(75);
+  const [contractYears, setContractYears] = useState(3);
+  const [status, setStatus] = useState('Disponible');
+  const [officialMVPs, setOfficialMVPs] = useState(0);
+  const [myMVPs, setMyMVPs] = useState(0);
 
   useEffect(() => {
     if (player) {
       setName(player.name || '');
       setPosition(player.position || 'DC');
       setOverall(player.overall || 75);
+      setContractYears(player.contractYears !== undefined ? player.contractYears : 3);
+      setStatus(player.status || 'Disponible');
+      setOfficialMVPs(player.officialMVPs || 0);
+      setMyMVPs(player.myMVPs || 0);
       setStats({
         minutes: player.stats?.minutes || 0,
         matches: player.stats?.matches || 0,
@@ -47,13 +55,18 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
     onUpdate(player.id, {
       name,
       position,
-      overall,
+      overall: Number(overall) || 75,
+      contractYears: Number(contractYears) >= 0 ? Number(contractYears) : 3,
+      status: status || 'Disponible',
+      officialMVPs: Number(officialMVPs) || 0,
+      myMVPs: Number(myMVPs) || 0,
       stats
     });
     onClose();
   };
 
   const positions = ['POR', 'LD', 'DFC', 'LI', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC', 'CAD', 'CAI', 'MD', 'MI'];
+  const statusOptions = ['Disponible', 'Lesionado (1 semana)', 'Lesionado (2 semanas)', 'Lesionado (3 semanas)', 'Lesionado (1 mes)', 'Lesionado (2 meses)', 'Lesionado (3 meses)', 'Sancionado (1 partido)', 'Sancionado (2 partidos)', 'Sancionado (3 partidos)', 'En duda', 'Descanso'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
@@ -73,7 +86,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           
-          <div className="grid grid-cols-3 gap-3 pb-3 border-b border-slate-800">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-3 border-b border-slate-800">
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Nombre</label>
               <input
@@ -88,7 +101,7 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                className="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs"
+                className="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-bold text-emerald-400"
               >
                 {positions.map(p => (
                   <option key={p} value={p}>{p}</option>
@@ -104,6 +117,52 @@ export const UpdateStatsModal = ({ isOpen, onClose, player, onUpdate }) => {
                 value={overall}
                 onChange={(e) => setOverall(e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-bold text-amber-400"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Contrato (Años)</label>
+              <input
+                type="number"
+                min="0"
+                max="8"
+                value={contractYears}
+                onChange={(e) => setContractYears(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-cyan-400 font-bold text-xs"
+              />
+            </div>
+            <div className="col-span-1 sm:col-span-2">
+              <label className="block text-[11px] font-semibold text-slate-400 uppercase mb-1">Estado de Disponibilidad</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-semibold"
+              >
+                {statusOptions.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">👑 MVPs Oficiales</label>
+              <input
+                type="number"
+                min="0"
+                value={officialMVPs}
+                onChange={(e) => setOfficialMVPs(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-amber-400 font-bold text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">⭐ MVPs del Mánager</label>
+              <input
+                type="number"
+                min="0"
+                value={myMVPs}
+                onChange={(e) => setMyMVPs(Math.max(0, Number(e.target.value) || 0))}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-cyan-400 font-bold text-xs"
               />
             </div>
           </div>

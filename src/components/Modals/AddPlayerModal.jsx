@@ -6,6 +6,10 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
   const [name, setName] = useState('');
   const [position, setPosition] = useState('DC');
   const [overall, setOverall] = useState('78');
+  const [contractYears, setContractYears] = useState(3);
+  const [status, setStatus] = useState('Disponible');
+  const [officialMVPs, setOfficialMVPs] = useState(0);
+  const [myMVPs, setMyMVPs] = useState(0);
   
   // Stats
   const [matches, setMatches] = useState(0);
@@ -22,6 +26,7 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
   if (!isOpen) return null;
 
   const positions = ['POR', 'LD', 'DFC', 'LI', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC', 'CAD', 'CAI', 'MD', 'MI'];
+  const statusOptions = ['Disponible', 'Lesionado (1 semana)', 'Lesionado (2 semanas)', 'Lesionado (3 semanas)', 'Lesionado (1 mes)', 'Lesionado (2 meses)', 'Lesionado (3 meses)', 'Sancionado (1 partido)', 'Sancionado (2 partidos)', 'Sancionado (3 partidos)', 'En duda', 'Descanso'];
 
   const handleToggleVoiceDictation = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -71,6 +76,10 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
       name,
       position,
       overall,
+      contractYears: Number(contractYears) >= 0 ? Number(contractYears) : 3,
+      status: status || 'Disponible',
+      officialMVPs: Number(officialMVPs) || 0,
+      myMVPs: Number(myMVPs) || 0,
       matches: Number(matches) || 0,
       minutes: Number(minutes) || (Number(matches) * 80),
       goals: Number(goals) || 0,
@@ -141,13 +150,13 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Posición Principal</label>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Posición</label>
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 font-bold text-emerald-400"
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-500 font-bold text-emerald-400"
               >
                 {positions.map(p => (
                   <option key={p} value={p}>{p}</option>
@@ -156,7 +165,7 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase mb-1">Media (GRL / OVR)</label>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Media (GRL)</label>
               <input
                 type="number"
                 min="40"
@@ -164,7 +173,55 @@ export const AddPlayerModal = ({ isOpen, onClose, onAdd }) => {
                 required
                 value={overall}
                 onChange={(e) => setOverall(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm font-bold text-amber-400 focus:outline-none focus:border-emerald-500"
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-amber-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Contrato (Años)</label>
+              <input
+                type="number"
+                min="0"
+                max="8"
+                value={contractYears}
+                onChange={(e) => setContractYears(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-bold text-cyan-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">Estado</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-emerald-500"
+              >
+                {statusOptions.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">👑 MVPs Oficiales</label>
+              <input
+                type="number"
+                min="0"
+                value={officialMVPs}
+                onChange={(e) => setOfficialMVPs(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-amber-400 font-bold text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 uppercase font-bold mb-1">⭐ MVPs del Mánager</label>
+              <input
+                type="number"
+                min="0"
+                value={myMVPs}
+                onChange={(e) => setMyMVPs(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-cyan-400 font-bold text-xs"
               />
             </div>
           </div>

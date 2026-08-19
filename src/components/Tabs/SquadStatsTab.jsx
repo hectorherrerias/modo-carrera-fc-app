@@ -61,8 +61,8 @@ export const SquadStatsTab = () => {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      // For position or name, start with asc (POR -> DC or A -> Z). For numeric stats, start desc.
-      setSortOrder(field === 'position' || field === 'name' ? 'asc' : 'desc');
+      // For position, name, or status start with asc. For numeric stats, start desc.
+      setSortOrder(field === 'position' || field === 'name' || field === 'status' ? 'asc' : 'desc');
     }
   };
 
@@ -82,12 +82,25 @@ export const SquadStatsTab = () => {
           if (rankA !== rankB) {
             return sortOrder === 'asc' ? (rankA - rankB) : (rankB - rankA);
           }
-          // Secondary sort: highest overall first
           return (b.overall || 0) - (a.overall || 0);
         }
 
         let aVal = a[sortField];
         let bVal = b[sortField];
+
+        if (sortField === 'contractYears') {
+          aVal = a.contractYears !== undefined ? a.contractYears : 3;
+          bVal = b.contractYears !== undefined ? b.contractYears : 3;
+        } else if (sortField === 'officialMVPs') {
+          aVal = a.officialMVPs || 0;
+          bVal = b.officialMVPs || 0;
+        } else if (sortField === 'myMVPs') {
+          aVal = a.myMVPs || 0;
+          bVal = b.myMVPs || 0;
+        } else if (sortField === 'status') {
+          aVal = a.status || 'Disponible';
+          bVal = b.status || 'Disponible';
+        }
 
         // If nested in stats object
         if (['minutes', 'matches', 'goals', 'assists', 'cleanSheets', 'yellowCards', 'redCards'].includes(sortField)) {
@@ -192,6 +205,34 @@ export const SquadStatsTab = () => {
                   </div>
                 </th>
 
+                <th onClick={() => handleSort('status')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors">
+                  <div className="flex items-center space-x-1">
+                    <span>Estado</span>
+                    {sortField === 'status' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-emerald-400" /> : <ArrowDown className="w-3 h-3 text-emerald-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('contractYears')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>Contrato</span>
+                    {sortField === 'contractYears' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('officialMVPs')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center" title="MVPs Oficiales del Partido">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>👑 Oficial</span>
+                    {sortField === 'officialMVPs' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-amber-400" /> : <ArrowDown className="w-3 h-3 text-amber-400" />)}
+                  </div>
+                </th>
+
+                <th onClick={() => handleSort('myMVPs')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center" title="MVPs del Mánager (Destacados)">
+                  <div className="flex items-center justify-center space-x-1">
+                    <span>⭐ Mánager</span>
+                    {sortField === 'myMVPs' && (sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-400" />)}
+                  </div>
+                </th>
+
                 <th onClick={() => handleSort('matches')} className="py-3.5 px-3 cursor-pointer hover:text-white transition-colors text-center">
                   <div className="flex items-center justify-center space-x-1">
                     <span>Partidos</span>
@@ -249,7 +290,7 @@ export const SquadStatsTab = () => {
             <tbody className="divide-y divide-slate-800/60 text-xs font-semibold text-slate-200">
               {filteredPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="py-8 text-center text-slate-500 text-sm">
+                  <td colSpan="15" className="py-8 text-center text-slate-500 text-sm">
                     No se encontraron jugadores registrados en esta temporada.
                   </td>
                 </tr>
@@ -270,6 +311,47 @@ export const SquadStatsTab = () => {
                     <td className="py-3.5 px-3 text-center">
                       <span className="font-extrabold text-amber-400 text-sm">
                         {player.overall}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3">
+                      {(() => {
+                        const s = player.status || 'Disponible';
+                        const isInjured = s.toLowerCase().includes('lesionad');
+                        const isSuspended = s.toLowerCase().includes('sancionad');
+                        const isAvailable = s.toLowerCase().includes('disponible');
+
+                        let badgeClass = 'bg-slate-950 text-slate-300 border-slate-800';
+                        if (isInjured) badgeClass = 'bg-rose-950/80 text-rose-400 border-rose-500/40';
+                        else if (isSuspended) badgeClass = 'bg-amber-950/80 text-amber-400 border-amber-500/40';
+                        else if (isAvailable) badgeClass = 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40';
+
+                        return (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold border ${badgeClass}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isInjured ? 'bg-rose-400 animate-pulse' : isSuspended ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                            {s}
+                          </span>
+                        );
+                      })()}
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={`text-[11px] font-bold ${
+                        (player.contractYears ?? 3) <= 1 ? 'text-rose-400 font-extrabold' : 'text-cyan-400'
+                      }`}>
+                        {player.contractYears !== undefined ? `${player.contractYears} ${player.contractYears === 1 ? 'año' : 'años'}` : '3 años'}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={`font-extrabold text-xs ${(player.officialMVPs || 0) > 0 ? 'text-amber-400' : 'text-slate-600'}`}>
+                        {(player.officialMVPs || 0) > 0 ? `👑 ${player.officialMVPs}` : '-'}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-3 text-center">
+                      <span className={`font-extrabold text-xs ${(player.myMVPs || 0) > 0 ? 'text-cyan-400' : 'text-slate-600'}`}>
+                        {(player.myMVPs || 0) > 0 ? `⭐ ${player.myMVPs}` : '-'}
                       </span>
                     </td>
 

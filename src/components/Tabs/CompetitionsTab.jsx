@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { parseCompVoiceDictation } from '../../utils/compVoiceParser';
-import { Trophy, Award, Crown, Plus, Edit2, Check, X, Mic, MicOff, Sparkles, Bot, Trash2 } from 'lucide-react';
+import { Trophy, Award, Crown, Plus, Edit2, Check, X, Mic, MicOff, Sparkles, Bot, Trash2, Star, Medal, Flame } from 'lucide-react';
 
 export const CompetitionsTab = () => {
-  const { activeSeason, addCompetition, updateCompetitionEntry, deleteCompetitionEntry, updateAwards } = useApp();
+  const { activeSeason, currentPlayers, addCompetition, updateCompetitionEntry, deleteCompetitionEntry, updateAwards } = useApp();
 
   const [isCompModalOpen, setIsCompModalOpen] = useState(false);
   const [editingComp, setEditingComp] = useState(null);
@@ -26,6 +26,21 @@ export const CompetitionsTab = () => {
     topScorer: activeSeason?.awards?.topScorer || '',
     topAssister: activeSeason?.awards?.topAssister || ''
   });
+
+  // Top 3 Official MVPs and Top 3 Manager MVPs
+  const topOfficialMVPs = useMemo(() => {
+    return [...(currentPlayers || [])]
+      .filter(p => (p.officialMVPs || 0) > 0)
+      .sort((a, b) => (b.officialMVPs || 0) - (a.officialMVPs || 0))
+      .slice(0, 3);
+  }, [currentPlayers]);
+
+  const topMyMVPs = useMemo(() => {
+    return [...(currentPlayers || [])]
+      .filter(p => (p.myMVPs || 0) > 0)
+      .sort((a, b) => (b.myMVPs || 0) - (a.myMVPs || 0))
+      .slice(0, 3);
+  }, [currentPlayers]);
 
   if (!activeSeason) return null;
 
@@ -254,6 +269,115 @@ export const CompetitionsTab = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* MVP Leaders Widget (Top 3 Official & Top 3 Manager) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
+        <div>
+          <h3 className="text-xl font-black text-white font-outfit flex items-center space-x-2">
+            <Trophy className="w-5 h-5 text-amber-400" />
+            <span>Líderes MVP de la Temporada</span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Ranking acumulado de los jugadores más determinantes elegidos tras cada partido en el Calendario.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          
+          {/* Top 3 Official MVPs */}
+          <div className="bg-slate-950/80 border border-amber-500/30 rounded-2xl p-4 shadow-xl">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+              <span className="text-xs font-black uppercase text-amber-400 flex items-center space-x-1.5">
+                <Crown className="w-4 h-4" />
+                <span>Top 3 • MVPs Oficiales</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold">👑 Premio oficial</span>
+            </div>
+
+            {topOfficialMVPs.length === 0 ? (
+              <div className="py-6 text-center text-slate-500 text-xs">
+                No hay jugadores con MVPs oficiales registrados aún. Registra partidos en el Calendario para sumar MVPs.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {topOfficialMVPs.map((player, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div 
+                      key={player.id}
+                      className="flex items-center justify-between bg-slate-900/90 border border-slate-800/80 hover:border-amber-500/40 p-3 rounded-xl transition-all"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl shrink-0">{medals[idx] || `#${idx + 1}`}</span>
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-black text-white text-sm">{player.name}</span>
+                            <span className="bg-slate-950 border border-slate-700 px-1.5 py-0.2 rounded text-[10px] font-black text-emerald-400">
+                              {player.position}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400">{player.overall} GRL • {player.stats?.matches || 0} partidos</span>
+                        </div>
+                      </div>
+
+                      <div className="px-3 py-1 bg-amber-950/80 border border-amber-500/40 rounded-xl text-amber-300 font-black text-xs">
+                        👑 {player.officialMVPs} {player.officialMVPs === 1 ? 'MVP' : 'MVPs'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Top 3 Manager MVPs */}
+          <div className="bg-slate-950/80 border border-cyan-500/30 rounded-2xl p-4 shadow-xl">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+              <span className="text-xs font-black uppercase text-cyan-400 flex items-center space-x-1.5">
+                <Star className="w-4 h-4" />
+                <span>Top 3 • MVPs del Mánager</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold">⭐ Elección del DT</span>
+            </div>
+
+            {topMyMVPs.length === 0 ? (
+              <div className="py-6 text-center text-slate-500 text-xs">
+                No hay jugadores con MVPs del Mánager registrados aún. Registra partidos en el Calendario para elegirlos.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {topMyMVPs.map((player, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div 
+                      key={player.id}
+                      className="flex items-center justify-between bg-slate-900/90 border border-slate-800/80 hover:border-cyan-500/40 p-3 rounded-xl transition-all"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-xl shrink-0">{medals[idx] || `#${idx + 1}`}</span>
+                        <div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-black text-white text-sm">{player.name}</span>
+                            <span className="bg-slate-950 border border-slate-700 px-1.5 py-0.2 rounded text-[10px] font-black text-emerald-400">
+                              {player.position}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400">{player.overall} GRL • {player.stats?.matches || 0} partidos</span>
+                        </div>
+                      </div>
+
+                      <div className="px-3 py-1 bg-cyan-950/80 border border-cyan-500/40 rounded-xl text-cyan-300 font-black text-xs">
+                        ⭐ {player.myMVPs} {player.myMVPs === 1 ? 'MVP' : 'MVPs'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
 
       {/* Competitions Section */}
