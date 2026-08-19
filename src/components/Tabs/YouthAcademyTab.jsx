@@ -87,15 +87,15 @@ export const YouthAcademyTab = () => {
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => setEditingYouth(youth)}
-                      title="Editar canterano"
-                      className="p-1 text-slate-500 hover:text-amber-400 rounded-lg hover:bg-slate-800 transition-colors"
+                      title="Editar todos los datos del canterano"
+                      className="p-1.5 rounded-lg border border-slate-800 hover:border-amber-500/50 text-slate-400 hover:text-amber-400 bg-slate-950 transition-all"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(youth.id, youth.name)}
                       title="Eliminar de la cantera"
-                      className="p-1 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+                      className="p-1.5 rounded-lg border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 bg-slate-950 transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -152,21 +152,30 @@ export const YouthAcademyTab = () => {
                   </div>
                 </div>
 
-                {/* Footer Promotion Button */}
-                <div className="pt-2">
+                {/* Footer Actions: Promote & Edit Buttons */}
+                <div className="pt-2 flex items-center space-x-2">
                   {youth.promoted ? (
-                    <div className="w-full py-2 bg-slate-950 text-slate-500 text-center text-xs font-bold rounded-xl border border-slate-800">
+                    <div className="flex-1 py-2 bg-slate-950 text-slate-500 text-center text-xs font-bold rounded-xl border border-slate-800">
                       ✓ Promovido al Primer Equipo
                     </div>
                   ) : (
                     <button
                       onClick={() => promoteYouthProspect(youth.id)}
-                      className="w-full py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5"
+                      className="flex-1 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5"
                     >
                       <UserCheck className="w-4 h-4" />
-                      <span>Promover al Primer Equipo ({currentOvr} GRL)</span>
+                      <span>Promover ({currentOvr} GRL)</span>
                     </button>
                   )}
+
+                  <button
+                    onClick={() => setEditingYouth(youth)}
+                    className="px-3.5 py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-amber-400 text-xs font-bold rounded-xl transition-all flex items-center space-x-1.5 shrink-0"
+                    title="Editar datos del canterano (Nombre, Edad, Posición, Potencial, Medias)"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Editar</span>
+                  </button>
                 </div>
 
               </div>

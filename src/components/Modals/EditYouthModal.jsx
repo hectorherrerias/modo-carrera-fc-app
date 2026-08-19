@@ -8,6 +8,7 @@ export const EditYouthModal = ({ isOpen, onClose, youth, onUpdate }) => {
   const [potential, setPotential] = useState('85-94');
   const [initialOverall, setInitialOverall] = useState(64);
   const [currentOverall, setCurrentOverall] = useState(64);
+  const [promoted, setPromoted] = useState(false);
 
   const positions = ['POR', 'LD', 'DFC', 'LI', 'MCD', 'MC', 'MCO', 'ED', 'EI', 'DC', 'CAD', 'CAI', 'MD', 'MI'];
 
@@ -19,6 +20,7 @@ export const EditYouthModal = ({ isOpen, onClose, youth, onUpdate }) => {
       setPotential(youth.potential || '85-94');
       setInitialOverall(youth.initialOverall || 64);
       setCurrentOverall(youth.currentOverall || youth.initialOverall || 64);
+      setPromoted(youth.promoted || false);
     }
   }, [youth]);
 
@@ -33,7 +35,8 @@ export const EditYouthModal = ({ isOpen, onClose, youth, onUpdate }) => {
       position,
       potential,
       initialOverall: Number(initialOverall) || 64,
-      currentOverall: Number(currentOverall) || 64
+      currentOverall: Number(currentOverall) || 64,
+      promoted
     });
     onClose();
   };
@@ -127,6 +130,24 @@ export const EditYouthModal = ({ isOpen, onClose, youth, onUpdate }) => {
                 className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-emerald-400 font-black text-xs focus:outline-none focus:border-amber-400"
               />
             </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl">
+            <div>
+              <span className="text-xs font-bold text-slate-200 block">Estado de Cantera</span>
+              <span className="text-[10px] text-slate-400 block">¿Ha sido promovido al primer equipo?</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPromoted(!promoted)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                promoted 
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' 
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {promoted ? '✓ Promovido' : 'En la Cantera'}
+            </button>
           </div>
 
           <div className="pt-3 flex justify-end space-x-3">
