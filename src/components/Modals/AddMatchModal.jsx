@@ -1,10 +1,39 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, X, Check, Award, Trophy, Users, Zap, Plus, Minus, 
-  Star, Crown, Shield, AlertTriangle, Info, Home, Plane 
+  Star, Crown, Shield, AlertTriangle, Info, Home, Plane, Edit3 
 } from 'lucide-react';
 
-export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, activeSeason }) => {
+const formatToISODate = (dateStr) => {
+  if (!dateStr) return new Date().toISOString().split('T')[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+    const parts = dateStr.split('/');
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  }
+  return new Date().toISOString().split('T')[0];
+};
+
+const getLatestMatchDate = (matches) => {
+  if (!matches || matches.length === 0) return new Date().toISOString().split('T')[0];
+  const latestMatch = matches[0];
+  if (latestMatch?.date) {
+    return formatToISODate(latestMatch.date);
+  }
+  return new Date().toISOString().split('T')[0];
+};
+
+export const AddMatchModal = ({ 
+  isOpen, 
+  onClose, 
+  onAddMatch, 
+  onUpdateMatch, 
+  matchToEdit = null, 
+  currentPlayers = [], 
+  activeSeason = null, 
+  currentMatches = [] 
+}) => {
+  const isEditing = Boolean(matchToEdit);
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [competition, setCompetition] = useState('');
@@ -24,8 +53,53 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
 
   // Initial setup when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setDate(new Date().toISOString().split('T')[0]);
+    if (!isOpen) return;
+
+    const seasonComps = (activeSeason?.competitions || []).map(c => c.name).filter(Boolean);
+    const defaultComp = seasonComps[0] || 'LaLiga EA Sports';
+
+    if (matchToEdit) {
+      // Pre-fill existing match details for Editing
+      setDate(formatToISODate(matchToEdit.date));
+      setOpponent(matchToEdit.opponent || '');
+      setVenue(matchToEdit.venue || 'local');
+      setOurGoals(matchToEdit.ourGoals !== undefined ? matchToEdit.ourGoals : 2);
+      setOpponentGoals(matchToEdit.opponentGoals !== undefined ? matchToEdit.opponentGoals : 1);
+      setResult(matchToEdit.result || 'V');
+      setManualResultOverride(true);
+      setOfficialMVP(matchToEdit.officialMVP || '');
+      setMyMVP(matchToEdit.myMVP || '');
+      setNotes(matchToEdit.notes || '');
+
+      const mComp = matchToEdit.competition || defaultComp;
+      if (seasonComps.includes(mComp)) {
+        setCompetition(mComp);
+        setIsCustomComp(false);
+        setCustomComp('');
+      } else {
+        setCompetition(mComp);
+        setIsCustomComp(true);
+        setCustomComp(mComp);
+      }
+
+      // Reconstruct player participation map
+      const existingMap = {};
+      (matchToEdit.playersInvolved || []).forEach(p => {
+        if (p.playerId) {
+          existingMap[p.playerId] = {
+            minutes: Number(p.minutesPlayed) || 90,
+            goals: Number(p.goals) || 0,
+            assists: Number(p.assists) || 0,
+            yellowCards: Number(p.yellowCards) || 0,
+            redCards: Number(p.redCards) || 0
+          };
+        }
+      });
+      setPlayerMatchStats(existingMap);
+    } else {
+      // New Match mode: default date follows from the latest logged match
+      const lastDate = getLatestMatchDate(currentMatches);
+      setDate(lastDate);
       setOpponent('');
       setVenue('local');
       setOurGoals(2);
@@ -37,10 +111,6 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       setNotes('');
       setIsCustomComp(false);
       setCustomComp('');
-
-      // Default competition from active season
-      const seasonComps = (activeSeason?.competitions || []).map(c => c.name).filter(Boolean);
-      const defaultComp = seasonComps[0] || 'LaLiga EA Sports';
       setCompetition(defaultComp);
 
       // Auto-select starting XI by default if available
@@ -55,7 +125,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       });
       setPlayerMatchStats(initialMap);
     }
-  }, [isOpen, activeSeason, currentPlayers]);
+  }, [isOpen, matchToEdit, activeSeason, currentPlayers, currentMatches]);
 
   // Dynamic automatic result calculation (V / E / D) based on goals
   useEffect(() => {
@@ -184,7 +254,7 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       };
     });
 
-    onAddMatch({
+    const payload = {
       date,
       opponent: opponent.trim(),
       competition,
@@ -197,7 +267,13 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
       officialMVP: officialMVP || null,
       myMVP: myMVP || null,
       notes: notes.trim()
-    });
+    };
+
+    if (isEditing && onUpdateMatch && matchToEdit?.id) {
+      onUpdateMatch(matchToEdit.id, payload);
+    } else {
+      onAddMatch(payload);
+    }
 
     onClose();
   };
@@ -211,12 +287,22 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <Calendar className="w-4 h-4" />
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+              isEditing 
+                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400' 
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+            }`}>
+              {isEditing ? <Edit3 className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
             </div>
             <div>
-              <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit">Registrar Nuevo Partido</h3>
-              <p className="text-[11px] text-slate-400">Automatiza minutos, goles, asistencias, tarjetas y porterías a cero</p>
+              <h3 className="font-extrabold text-base sm:text-lg text-white font-outfit">
+                {isEditing ? `Editar Partido contra ${matchToEdit.opponent || 'Rival'}` : 'Registrar Nuevo Partido'}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {isEditing 
+                  ? 'Modifica el resultado, alineación, minutos, goles o destacados del encuentro' 
+                  : 'Automatiza minutos, goles, asistencias, tarjetas y porterías a cero'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
@@ -713,10 +799,14 @@ export const AddMatchModal = ({ isOpen, onClose, onAddMatch, currentPlayers, act
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-xs font-black text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1.5 cursor-pointer"
+              className={`px-6 py-2.5 text-xs font-black text-slate-950 rounded-xl shadow-lg transition-all flex items-center space-x-1.5 cursor-pointer ${
+                isEditing
+                  ? 'bg-amber-400 hover:bg-amber-300 shadow-amber-500/20'
+                  : 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-500/20'
+              }`}
             >
               <Check className="w-4 h-4" />
-              <span>Guardar Partido y Actualizar Plantilla</span>
+              <span>{isEditing ? 'Guardar Cambios del Partido' : 'Guardar Partido y Actualizar Plantilla'}</span>
             </button>
           </div>
 

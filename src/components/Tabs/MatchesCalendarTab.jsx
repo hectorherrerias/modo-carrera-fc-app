@@ -2,15 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { AddMatchModal } from '../Modals/AddMatchModal';
 import { 
-  Calendar, Plus, Trophy, Crown, Star, Users, Trash2, 
+  Calendar, Plus, Trophy, Crown, Star, Users, Trash2, Edit3,
   ChevronDown, ChevronUp, Search, Filter, Percent, ShieldCheck, Flame
 } from 'lucide-react';
 import { ClubLogo } from '../ClubLogo';
 
 export const MatchesCalendarTab = () => {
-  const { activeClub, activeSeason, currentPlayers, currentMatches, addMatch, deleteMatch } = useApp();
+  const { activeClub, activeSeason, currentPlayers, currentMatches, addMatch, updateMatch, deleteMatch } = useApp();
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState(null);
   const [search, setSearch] = useState('');
   const [compFilter, setCompFilter] = useState('ALL');
   const [resultFilter, setResultFilter] = useState('ALL');
@@ -88,6 +89,11 @@ export const MatchesCalendarTab = () => {
     }
   };
 
+  const handleEdit = (match) => {
+    setEditingMatch(match);
+    setIsAddModalOpen(true);
+  };
+
   const toggleExpand = (id) => {
     setExpandedMatchId(prev => prev === id ? null : id);
   };
@@ -107,14 +113,17 @@ export const MatchesCalendarTab = () => {
               <h3 className="text-2xl font-black text-white font-outfit">Calendario y Registro de Partidos</h3>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Registra los resultados de tus encuentros, minutos de los jugadores y destacados (MVPs).
+              Registra y edita los resultados de tus encuentros, minutos de los jugadores y destacados (MVPs).
             </p>
           </div>
         </div>
 
         {/* Action Button */}
         <button
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={() => {
+            setEditingMatch(null);
+            setIsAddModalOpen(true);
+          }}
           className="w-full md:w-auto flex items-center justify-center space-x-2 px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-emerald-500/20 transition-all shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
@@ -306,9 +315,17 @@ export const MatchesCalendarTab = () => {
                     </span>
 
                     <button
+                      onClick={() => handleEdit(match)}
+                      title="Editar datos y alineación del partido"
+                      className="p-1.5 text-slate-400 hover:text-amber-400 rounded-lg hover:bg-slate-950 transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
                       onClick={() => handleDelete(match.id, match.opponent)}
                       title="Eliminar registro del partido"
-                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-950 transition-colors"
+                      className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-950 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -471,13 +488,19 @@ export const MatchesCalendarTab = () => {
         )}
       </div>
 
-      {/* Add Match Modal */}
+      {/* Add / Edit Match Modal */}
       <AddMatchModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingMatch(null);
+        }}
         onAddMatch={addMatch}
+        onUpdateMatch={updateMatch}
+        matchToEdit={editingMatch}
         currentPlayers={currentPlayers}
         activeSeason={activeSeason}
+        currentMatches={currentMatches}
       />
 
     </div>

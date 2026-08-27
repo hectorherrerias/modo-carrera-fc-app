@@ -75,7 +75,7 @@ export const AddSeasonModal = ({ isOpen, onClose, onAdd }) => {
               className="w-4 h-4 rounded border-slate-700 text-cyan-500 focus:ring-cyan-400 bg-slate-950"
             />
             <label htmlFor="copySquad" className="text-xs font-medium text-slate-300 cursor-pointer">
-              Copiar plantilla actual de la temporada anterior
+              Copiar plantilla y canteranos de la temporada anterior (+1 año de edad)
             </label>
           </div>
 

@@ -228,3 +228,91 @@ Responde únicamente con el párrafo de texto, sin comillas ni títulos.`;
 
   return await callGeminiLiveAPI(apiKey, prompt, "Eres un cronista deportivo de EA FC experto en narrativa futbolística.");
 };
+
+/**
+ * Generate Newspaper Front Pages via Gemini based on Match Results
+ */
+export const generateGeminiMatchNews = async (apiKey, { match, clubName, managerName, scorers = [], assisters = [], officialMVPName = '', myMVPName = '' }) => {
+  const systemPrompt = `Eres el redactor jefe de los principales diarios deportivos de España (MARCA, AS, El Chiringuito).
+Genera 3 crónicas periodísticas y titulares de portada espectaculares basadas en el resultado de un partido de fútbol en Modo Carrera EA FC.
+
+ESTILOS POR MEDIO:
+1. Diario MARCA (outletId: "marca"): Titular con rigor y trascendencia táctica.
+2. Diario AS (outletId: "as"): Titular pasional en mayúsculas, garra y protagonistas.
+3. El Chiringuito (outletId: "chiringuito"): Titular con ¡EXCLUSIVA! o ¡BOMBAZO!, debate sobre el rendimiento del equipo o el entrenador.
+
+Devuelve SOLAMENTE un array JSON válido con 3 objetos:
+[
+  {
+    "outletId": "marca",
+    "outletName": "Diario MARCA",
+    "outletLogo": "🔴 MARCA",
+    "headline": "TITULAR IMPACTANTE",
+    "subheadline": "Subtítulo explicativo del resultado y clave del partido",
+    "body": "Crónica de 3 a 5 líneas con detalles del partido, goleadores y sensaciones...",
+    "author": "José Félix Díaz (MARCA)"
+  },
+  {
+    "outletId": "as",
+    "outletName": "Diario AS",
+    "outletLogo": "🟧 AS",
+    "headline": "TITULAR APASIONADO",
+    "subheadline": "Subtítulo con garra",
+    "body": "Crónica pasional...",
+    "author": "Tomás Roncero (AS)"
+  },
+  {
+    "outletId": "chiringuito",
+    "outletName": "El Chiringuito de Jugones",
+    "outletLogo": "⚡ EL CHIRINGUITO",
+    "headline": "TITULAR BOMBAZO",
+    "subheadline": "Subtítulo incisivo",
+    "body": "Crónica con análisis del banquillo y figuras...",
+    "author": "Josep Pedrerol (El Chiringuito)"
+  }
+]`;
+
+  const resultDesc = match.result === 'V' ? 'Victoria' : (match.result === 'E' ? 'Empate' : 'Derrota');
+  const venueDesc = match.venue === 'visitante' ? 'como Visitante' : 'en Casa (Local)';
+  const scorersText = scorers.length > 0 ? scorers.join(', ') : 'Sin goleadores registrados';
+  const assistersText = assisters.length > 0 ? assisters.join(', ') : 'Ninguna';
+
+  const userPrompt = `Club: ${clubName}
+Entrenador: ${managerName}
+Partido: ${match.venue === 'visitante' ? `${match.opponent} vs ${clubName}` : `${clubName} vs ${match.opponent}`}
+Competición: ${match.competition || 'Competición Oficial'}
+Resultado: ${resultDesc} (${match.score}) jugando ${venueDesc}
+Goleadores de ${clubName}: ${scorersText}
+Asistencias: ${assistersText}
+MVP Oficial: ${officialMVPName || 'No asignado'}
+MVP del Mánager: ${myMVPName || 'No asignado'}
+Notas del partido: ${match.notes || 'Sin notas adicionales'}
+
+Genera las 3 portadas/noticias del partido en formato JSON.`;
+
+  try {
+    const rawText = await callGeminiLiveAPI(apiKey, userPrompt, systemPrompt, { temperature: 0.8 });
+    const cleaned = rawText.replace(/```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed) && parsed.length >= 3) {
+      const dateStr = match.date || new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+      return parsed.map((item, idx) => ({
+        id: `news_match_${item.outletId || 'press'}_${Date.now()}_${idx}`,
+        outletId: item.outletId || (idx === 0 ? 'marca' : idx === 1 ? 'as' : 'chiringuito'),
+        outletName: item.outletName,
+        outletLogo: item.outletLogo,
+        headline: item.headline,
+        subheadline: item.subheadline,
+        body: item.body,
+        date: dateStr,
+        author: item.author,
+        matchId: match.id,
+        matchContext: `${match.competition} • ${match.score} vs ${match.opponent}`,
+        isFavorite: false
+      }));
+    }
+  } catch (err) {
+    console.warn("Could not generate Gemini match news, falling back:", err);
+  }
+  return null;
+};

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useAuth } from './AuthContext';
 import { INITIAL_DATA } from '../mockData';
 import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
+import { generateNewsFromMatchResultAsync } from '../utils/pressAIEngine';
 
 const AppContext = createContext();
 
@@ -448,8 +449,9 @@ export const AppProvider = ({ children }) => {
     };
 
     let copiedPlayers = [];
+    let copiedYouth = [];
     if (lastSeason && seasonData.copySquad) {
-      const prevPlayers = data.players.filter(p => p.seasonId === lastSeason.id);
+      const prevPlayers = (data.players || []).filter(p => p.seasonId === lastSeason.id);
       copiedPlayers = prevPlayers.map(p => ({
         ...p,
         id: "p_" + Math.random().toString(36).substr(2, 9),
@@ -461,12 +463,25 @@ export const AppProvider = ({ children }) => {
         myMVPs: 0,
         stats: { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 }
       }));
+
+      const prevYouth = (data.youthAcademy || []).filter(y => y.seasonId === lastSeason.id && !y.promoted);
+      copiedYouth = prevYouth.map(y => ({
+        ...y,
+        id: "y_" + Math.random().toString(36).substr(2, 9),
+        seasonId: seasonId,
+        age: (Number(y.age) || 16) + 1,
+        initialOverall: Number(y.currentOverall) || Number(y.initialOverall) || 65,
+        currentOverall: Number(y.currentOverall) || Number(y.initialOverall) || 65,
+        potential: y.potential || "85-94",
+        promoted: false
+      }));
     }
 
     setData(prev => ({
       ...prev,
       seasons: [...prev.seasons, newSeason],
-      players: [...prev.players, ...copiedPlayers]
+      players: [...prev.players, ...copiedPlayers],
+      youthAcademy: [...(prev.youthAcademy || []), ...copiedYouth]
     }));
 
     setActiveSeasonId(seasonId);
@@ -541,6 +556,8 @@ export const AppProvider = ({ children }) => {
     }));
   };
 
+  const cleanSheetPositions = new Set(['POR', 'GK', 'PT', 'DFC', 'CB', 'CENTRAL', 'LD', 'LI', 'CAD', 'CAI', 'RB', 'LB', 'RWB', 'LWB']);
+
   // Match Tracking & Automated Stats Updating
   const addMatch = (matchData) => {
     if (!activeSeasonId) return;
@@ -548,7 +565,7 @@ export const AppProvider = ({ children }) => {
     const newMatch = {
       id: matchId,
       seasonId: activeSeasonId,
-      date: matchData.date || new Date().toLocaleDateString('es-ES'),
+      date: matchData.date || new Date().toISOString().split('T')[0],
       opponent: matchData.opponent || 'Rival',
       competition: matchData.competition || 'LaLiga EA Sports',
       venue: matchData.venue || 'local', // 'local' | 'visitante'
@@ -562,7 +579,7 @@ export const AppProvider = ({ children }) => {
       notes: matchData.notes || ''
     };
 
-    // Extract goals against to check for Portería a Cero (rival goals === 0)
+    // Check for clean sheet (opponent goals === 0)
     let rivalGoals = newMatch.opponentGoals;
     if (matchData.score && matchData.score.includes('-')) {
       const parts = matchData.score.split('-').map(s => Number(s.trim()) || 0);
@@ -571,9 +588,6 @@ export const AppProvider = ({ children }) => {
       }
     }
     const isCleanSheetMatch = rivalGoals === 0;
-
-    // GK and Defender positions eligible for clean sheets if playing >= 60 minutes
-    const cleanSheetPositions = new Set(['POR', 'GK', 'PT', 'DFC', 'CB', 'CENTRAL', 'LD', 'LI', 'CAD', 'CAI', 'RB', 'LB', 'RWB', 'LWB']);
 
     const playersInvolvedMap = new Map();
     (matchData.playersInvolved || []).forEach(p => {
@@ -605,7 +619,7 @@ export const AppProvider = ({ children }) => {
         return s;
       });
 
-      // 2. Update players: stats (matches, minutes, goals, assists, yellowCards, redCards, cleanSheets), MVPs
+      // 2. Update players: stats & MVPs
       const updatedPlayers = prev.players.map(p => {
         if (p.seasonId !== activeSeasonId) return p;
 
@@ -619,7 +633,6 @@ export const AppProvider = ({ children }) => {
         const yellowCardsToAdd = pData ? pData.yellowCards : 0;
         const redCardsToAdd = pData ? pData.redCards : 0;
 
-        // Clean sheet automation: rival scored 0, player is POR or DEF, played >= 60 min
         const pPos = (p.position || '').toUpperCase();
         const isEligibleDefOrGk = cleanSheetPositions.has(pPos);
         const cleanSheetToAdd = (isCleanSheetMatch && isEligibleDefOrGk && minutesToAdd >= 60) ? 1 : 0;
@@ -655,20 +668,252 @@ export const AppProvider = ({ children }) => {
         matches: [newMatch, ...(prev.matches || [])]
       };
     });
+
+    // Auto-generate press news for this match
+    generateNewsFromMatchResultAsync({
+      apiKey: currentUser?.geminiApiKey,
+      match: newMatch,
+      clubName: activeClub?.name || 'Club',
+      managerName: activeClub?.managerName || 'Mánager',
+      currentPlayers
+    }).then(articles => {
+      if (articles && articles.length > 0) {
+        setData(prev => ({
+          ...prev,
+          newsArticles: [...articles.map(a => ({ ...a, seasonId: activeSeasonId })), ...(prev.newsArticles || [])]
+        }));
+      }
+    }).catch(err => {
+      console.warn("Could not auto-generate match news:", err);
+    });
   };
 
   const deleteMatch = (matchId) => {
-    setData(prev => ({
-      ...prev,
-      matches: (prev.matches || []).filter(m => m.id !== matchId)
-    }));
+    setData(prev => {
+      const matchToDelete = (prev.matches || []).find(m => m.id === matchId);
+      if (!matchToDelete) return prev;
+
+      const sId = matchToDelete.seasonId;
+      const resKey = matchToDelete.result === 'V' ? 'wins' : (matchToDelete.result === 'E' ? 'draws' : 'losses');
+
+      // 1. Revert season match results
+      const updatedSeasons = prev.seasons.map(s => {
+        if (s.id === sId) {
+          const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
+          return {
+            ...s,
+            matchResults: {
+              ...currentResults,
+              [resKey]: Math.max(0, (currentResults[resKey] || 0) - 1)
+            }
+          };
+        }
+        return s;
+      });
+
+      // 2. Revert player stats
+      const isCleanSheetMatch = Number(matchToDelete.opponentGoals) === 0;
+      const playersInvolvedMap = new Map();
+      (matchToDelete.playersInvolved || []).forEach(p => {
+        if (p.playerId) {
+          playersInvolvedMap.set(p.playerId, {
+            minutesPlayed: Number(p.minutesPlayed) || 90,
+            goals: Number(p.goals) || 0,
+            assists: Number(p.assists) || 0,
+            yellowCards: Number(p.yellowCards) || 0,
+            redCards: Number(p.redCards) || 0
+          });
+        }
+      });
+
+      const updatedPlayers = prev.players.map(p => {
+        if (p.seasonId !== sId) return p;
+
+        const isParticipant = playersInvolvedMap.has(p.id);
+        const pData = isParticipant ? playersInvolvedMap.get(p.id) : null;
+        
+        const minutesToSub = pData ? pData.minutesPlayed : 0;
+        const matchesToSub = isParticipant ? 1 : 0;
+        const goalsToSub = pData ? pData.goals : 0;
+        const assistsToSub = pData ? pData.assists : 0;
+        const yellowCardsToSub = pData ? pData.yellowCards : 0;
+        const redCardsToSub = pData ? pData.redCards : 0;
+
+        const pPos = (p.position || '').toUpperCase();
+        const isEligibleDefOrGk = cleanSheetPositions.has(pPos);
+        const cleanSheetToSub = (isCleanSheetMatch && isEligibleDefOrGk && minutesToSub >= 60) ? 1 : 0;
+
+        const isOfficialMVP = matchToDelete.officialMVP === p.id;
+        const isMyMVP = matchToDelete.myMVP === p.id;
+
+        if (isParticipant || isOfficialMVP || isMyMVP) {
+          const currentStats = p.stats || { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 };
+          return {
+            ...p,
+            officialMVPs: Math.max(0, (p.officialMVPs || 0) - (isOfficialMVP ? 1 : 0)),
+            myMVPs: Math.max(0, (p.myMVPs || 0) - (isMyMVP ? 1 : 0)),
+            stats: {
+              ...currentStats,
+              matches: Math.max(0, (currentStats.matches || 0) - matchesToSub),
+              minutes: Math.max(0, (currentStats.minutes || 0) - minutesToSub),
+              goals: Math.max(0, (currentStats.goals || 0) - goalsToSub),
+              assists: Math.max(0, (currentStats.assists || 0) - assistsToSub),
+              yellowCards: Math.max(0, (currentStats.yellowCards || 0) - yellowCardsToSub),
+              redCards: Math.max(0, (currentStats.redCards || 0) - redCardsToSub),
+              cleanSheets: Math.max(0, (currentStats.cleanSheets || 0) - cleanSheetToSub)
+            }
+          };
+        }
+        return p;
+      });
+
+      return {
+        ...prev,
+        seasons: updatedSeasons,
+        players: updatedPlayers,
+        matches: prev.matches.filter(m => m.id !== matchId),
+        newsArticles: (prev.newsArticles || []).filter(n => n.matchId !== matchId || n.isFavorite)
+      };
+    });
   };
 
   const updateMatch = (matchId, updatedFields) => {
-    setData(prev => ({
-      ...prev,
-      matches: (prev.matches || []).map(m => m.id === matchId ? { ...m, ...updatedFields } : m)
-    }));
+    let updatedMatchObj = null;
+
+    setData(prev => {
+      const oldMatch = (prev.matches || []).find(m => m.id === matchId);
+      if (!oldMatch) return prev;
+
+      const sId = oldMatch.seasonId;
+      const newMatch = {
+        ...oldMatch,
+        ...updatedFields,
+        ourGoals: Number(updatedFields.ourGoals) >= 0 ? Number(updatedFields.ourGoals) : oldMatch.ourGoals,
+        opponentGoals: Number(updatedFields.opponentGoals) >= 0 ? Number(updatedFields.opponentGoals) : oldMatch.opponentGoals,
+        score: updatedFields.score || `${Number(updatedFields.ourGoals) || 0} - ${Number(updatedFields.opponentGoals) || 0}`,
+        playersInvolved: updatedFields.playersInvolved || oldMatch.playersInvolved || []
+      };
+      updatedMatchObj = newMatch;
+
+      // 1. Reconcile season match results if result changed
+      let updatedSeasons = prev.seasons;
+      if (oldMatch.result !== newMatch.result) {
+        const oldKey = oldMatch.result === 'V' ? 'wins' : (oldMatch.result === 'E' ? 'draws' : 'losses');
+        const newKey = newMatch.result === 'V' ? 'wins' : (newMatch.result === 'E' ? 'draws' : 'losses');
+
+        updatedSeasons = prev.seasons.map(s => {
+          if (s.id === sId) {
+            const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
+            return {
+              ...s,
+              matchResults: {
+                ...currentResults,
+                [oldKey]: Math.max(0, (currentResults[oldKey] || 0) - 1),
+                [newKey]: (currentResults[newKey] || 0) + 1
+              }
+            };
+          }
+          return s;
+        });
+      }
+
+      // 2. Reconcile player statistics
+      const oldCleanSheet = Number(oldMatch.opponentGoals) === 0;
+      const newCleanSheet = Number(newMatch.opponentGoals) === 0;
+
+      const oldPMap = new Map();
+      (oldMatch.playersInvolved || []).forEach(p => {
+        if (p.playerId) oldPMap.set(p.playerId, p);
+      });
+
+      const newPMap = new Map();
+      (newMatch.playersInvolved || []).forEach(p => {
+        if (p.playerId) newPMap.set(p.playerId, p);
+      });
+
+      const updatedPlayers = prev.players.map(p => {
+        if (p.seasonId !== sId) return p;
+
+        const pPos = (p.position || '').toUpperCase();
+        const isEligibleDefOrGk = cleanSheetPositions.has(pPos);
+
+        // Old stats contributed by this match
+        const hadOld = oldPMap.has(p.id);
+        const oldPData = hadOld ? oldPMap.get(p.id) : null;
+        const oldMins = oldPData ? (Number(oldPData.minutesPlayed) || 90) : 0;
+        const oldMatches = hadOld ? 1 : 0;
+        const oldGoals = oldPData ? (Number(oldPData.goals) || 0) : 0;
+        const oldAssists = oldPData ? (Number(oldPData.assists) || 0) : 0;
+        const oldYellow = oldPData ? (Number(oldPData.yellowCards) || 0) : 0;
+        const oldRed = oldPData ? (Number(oldPData.redCards) || 0) : 0;
+        const oldClean = (oldCleanSheet && isEligibleDefOrGk && oldMins >= 60) ? 1 : 0;
+        const wasOldOfficialMVP = oldMatch.officialMVP === p.id ? 1 : 0;
+        const wasOldMyMVP = oldMatch.myMVP === p.id ? 1 : 0;
+
+        // New stats contributed by this match
+        const hasNew = newPMap.has(p.id);
+        const newPData = hasNew ? newPMap.get(p.id) : null;
+        const newMins = newPData ? (Number(newPData.minutesPlayed) || 90) : 0;
+        const newMatches = hasNew ? 1 : 0;
+        const newGoals = newPData ? (Number(newPData.goals) || 0) : 0;
+        const newAssists = newPData ? (Number(newPData.assists) || 0) : 0;
+        const newYellow = newPData ? (Number(newPData.yellowCards) || 0) : 0;
+        const newRed = newPData ? (Number(newPData.redCards) || 0) : 0;
+        const newClean = (newCleanSheet && isEligibleDefOrGk && newMins >= 60) ? 1 : 0;
+        const isNewOfficialMVP = newMatch.officialMVP === p.id ? 1 : 0;
+        const isNewMyMVP = newMatch.myMVP === p.id ? 1 : 0;
+
+        if (hadOld || hasNew || wasOldOfficialMVP || isNewOfficialMVP || wasOldMyMVP || isNewMyMVP) {
+          const currentStats = p.stats || { minutes: 0, matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 };
+          return {
+            ...p,
+            officialMVPs: Math.max(0, (p.officialMVPs || 0) - wasOldOfficialMVP + isNewOfficialMVP),
+            myMVPs: Math.max(0, (p.myMVPs || 0) - wasOldMyMVP + isNewMyMVP),
+            stats: {
+              ...currentStats,
+              matches: Math.max(0, (currentStats.matches || 0) - oldMatches + newMatches),
+              minutes: Math.max(0, (currentStats.minutes || 0) - oldMins + newMins),
+              goals: Math.max(0, (currentStats.goals || 0) - oldGoals + newGoals),
+              assists: Math.max(0, (currentStats.assists || 0) - oldAssists + newAssists),
+              yellowCards: Math.max(0, (currentStats.yellowCards || 0) - oldYellow + newYellow),
+              redCards: Math.max(0, (currentStats.redCards || 0) - oldRed + newRed),
+              cleanSheets: Math.max(0, (currentStats.cleanSheets || 0) - oldClean + newClean)
+            }
+          };
+        }
+        return p;
+      });
+
+      return {
+        ...prev,
+        seasons: updatedSeasons,
+        players: updatedPlayers,
+        matches: prev.matches.map(m => m.id === matchId ? newMatch : m)
+      };
+    });
+
+    // Re-generate press news for updated match
+    if (updatedMatchObj) {
+      generateNewsFromMatchResultAsync({
+        apiKey: currentUser?.geminiApiKey,
+        match: updatedMatchObj,
+        clubName: activeClub?.name || 'Club',
+        managerName: activeClub?.managerName || 'Mánager',
+        currentPlayers
+      }).then(articles => {
+        if (articles && articles.length > 0) {
+          setData(prev => ({
+            ...prev,
+            newsArticles: [
+              ...articles.map(a => ({ ...a, seasonId: activeSeasonId })),
+              ...(prev.newsArticles || []).filter(n => n.matchId !== matchId || n.isFavorite)
+            ]
+          }));
+        }
+      }).catch(err => {
+        console.warn("Could not regenerate match news on edit:", err);
+      });
+    }
   };
 
   const updatePhaseTactics = (phase, phaseData, syncBothSquads = true) => {

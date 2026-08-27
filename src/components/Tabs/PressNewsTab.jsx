@@ -1,15 +1,52 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { MEDIA_OUTLETS } from '../../utils/pressAIEngine';
-import { Newspaper, Sparkles, Star, Bookmark, Trash2, Bot } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { MEDIA_OUTLETS, generateNewsFromMatchResultAsync } from '../../utils/pressAIEngine';
+import { Newspaper, Sparkles, Star, Bookmark, Trash2, Bot, Trophy, RefreshCw, Flame } from 'lucide-react';
 
 export const PressNewsTab = () => {
-  const { activeClub, activeSeason, currentNews, toggleNewsFavorite, clearUnfavoritedNews } = useApp();
+  const { activeClub, activeSeason, currentNews, currentMatches, currentPlayers, toggleNewsFavorite, clearUnfavoritedNews, setData } = useApp();
+  const { currentUser } = useAuth();
 
   const [selectedOutletFilter, setSelectedOutletFilter] = useState('ALL');
   const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [isGeneratingMatchNews, setIsGeneratingMatchNews] = useState(false);
 
   if (!activeClub || !activeSeason) return null;
+
+  const handleGenerateLatestMatchNews = async () => {
+    if (!currentMatches || currentMatches.length === 0) {
+      alert("Primero registra al menos un partido en el calendario para generar sus crónicas de prensa.");
+      return;
+    }
+
+    const latestMatch = currentMatches[0];
+    setIsGeneratingMatchNews(true);
+
+    try {
+      const newArticles = await generateNewsFromMatchResultAsync({
+        apiKey: currentUser?.geminiApiKey,
+        match: latestMatch,
+        clubName: activeClub.name,
+        managerName: activeClub.managerName,
+        currentPlayers
+      });
+
+      if (newArticles && newArticles.length > 0) {
+        setData(prev => ({
+          ...prev,
+          newsArticles: [
+            ...newArticles.map(a => ({ ...a, seasonId: activeSeason.id })),
+            ...(prev.newsArticles || [])
+          ]
+        }));
+      }
+    } catch (err) {
+      console.warn("Error generating match news:", err);
+    }
+
+    setIsGeneratingMatchNews(false);
+  };
 
   const filteredNews = currentNews.filter(n => {
     const matchesOutlet = selectedOutletFilter === 'ALL' || n.outletId === selectedOutletFilter;
@@ -32,7 +69,7 @@ export const PressNewsTab = () => {
             <div className="flex items-center space-x-2">
               <span className="text-[10px] font-extrabold uppercase text-red-400 bg-red-950 border border-red-500/30 px-2 py-0.5 rounded flex items-center space-x-1">
                 <Bot className="w-3 h-3" />
-                <span>Generación 100% Automática por la IA</span>
+                <span>Crónicas de Partidos & Ruedas de Prensa</span>
               </span>
 
               {favoritesCount > 0 && (
@@ -44,19 +81,33 @@ export const PressNewsTab = () => {
             </div>
             <h3 className="text-2xl font-black text-white font-outfit mt-1">Prensa y Portadas de Periódicos</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Las portadas de MARCA, Diario AS y El Chiringuito se redactan y diseñan **automáticamente** según lo que respondes en las ruedas de prensa.
+              Las portadas de MARCA, Diario AS y El Chiringuito se generan **automáticamente** tras cada partido según el resultado, goleadores y MVPs, y tras tus ruedas de prensa.
             </p>
           </div>
         </div>
 
-        <button
-          onClick={clearUnfavoritedNews}
-          title="Limpiar noticias no favoritas del partido anterior"
-          className="flex items-center space-x-1.5 px-4 py-2.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-rose-400 font-bold text-xs rounded-xl border border-slate-800 transition-all"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          <span>Limpiar No Favoritas del Partido Anterior</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {currentMatches.length > 0 && (
+            <button
+              onClick={handleGenerateLatestMatchNews}
+              disabled={isGeneratingMatchNews}
+              title="Generar nuevas portadas sobre el último partido jugado"
+              className="flex items-center space-x-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs rounded-xl shadow-lg shadow-red-600/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingMatchNews ? 'animate-spin' : ''}`} />
+              <span>{isGeneratingMatchNews ? 'Generando Crónicas...' : 'Crónica del Último Partido'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={clearUnfavoritedNews}
+            title="Limpiar noticias no favoritas"
+            className="flex items-center space-x-1.5 px-4 py-2.5 bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-rose-400 font-bold text-xs rounded-xl border border-slate-800 transition-all cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Limpiar No Favoritas</span>
+          </button>
+        </div>
       </div>
 
       {/* Outlet & Favorites Filter Bar */}
@@ -157,10 +208,22 @@ export const PressNewsTab = () => {
                   
                   {/* Dramatic Front-Page Headline */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase text-red-400 bg-red-950 border border-red-500/30 px-2 py-0.5 rounded">
-                        PORTADA AUTOMÁTICA DE PRENSA
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <div className="flex items-center space-x-1.5">
+                        <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border ${
+                          news.matchContext 
+                            ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40' 
+                            : 'bg-red-950 text-red-400 border-red-500/30'
+                        }`}>
+                          {news.matchContext ? '⚽ CRÓNICA DEL PARTIDO' : '🎙️ RUEDA DE PRENSA'}
+                        </span>
+
+                        {news.matchContext && (
+                          <span className="text-[9px] font-bold text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                            {news.matchContext}
+                          </span>
+                        )}
+                      </div>
 
                       {news.isFavorite && (
                         <span className="text-[9px] font-extrabold uppercase text-amber-400 bg-amber-950 border border-amber-500/30 px-2 py-0.5 rounded flex items-center space-x-1">
