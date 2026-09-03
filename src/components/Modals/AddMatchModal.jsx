@@ -4,6 +4,7 @@ import {
   Star, Crown, Shield, AlertTriangle, Info, Home, Plane, Edit3, HeartPulse 
 } from 'lucide-react';
 import { getPlayerInjuryStatus } from '../../utils/injuryHelper';
+import { sortPlayersByPositionHierarchy } from '../../utils/statsHelper';
 
 const formatToISODate = (dateStr) => {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -146,6 +147,11 @@ export const AddMatchModal = ({
 
   const teamGoals = Number(ourGoals) || 0;
   const isCleanSheet = (Number(opponentGoals) || 0) === 0;
+
+  // Sorted players by position hierarchy (POR -> DFC -> LD/LI -> MCD -> MC -> MCO -> ED/EI -> DC)
+  const sortedPlayers = useMemo(() => {
+    return sortPlayersByPositionHierarchy(currentPlayers);
+  }, [currentPlayers]);
 
   if (!isOpen) return null;
 
@@ -513,7 +519,7 @@ export const AddMatchModal = ({
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-amber-400"
                 >
                   <option value="">-- Sin MVP Oficial --</option>
-                  {currentPlayers.map(p => (
+                  {sortedPlayers.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.position}, {p.overall} GRL)
                     </option>
@@ -532,7 +538,7 @@ export const AddMatchModal = ({
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-cyan-400"
                 >
                   <option value="">-- Sin MVP del Mánager --</option>
-                  {currentPlayers.map(p => (
+                  {sortedPlayers.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.position}, {p.overall} GRL)
                     </option>
@@ -611,10 +617,10 @@ export const AddMatchModal = ({
 
             {/* Players List Grid with Individual Counters */}
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-800/40">
-              {currentPlayers.length === 0 ? (
+              {sortedPlayers.length === 0 ? (
                 <p className="text-center text-slate-500 py-4 text-xs">No hay jugadores registrados en la plantilla.</p>
               ) : (
-                currentPlayers.map(player => {
+                sortedPlayers.map(player => {
                   const pData = playerMatchStats[player.id];
                   const isSelected = pData !== undefined;
                   const mins = pData?.minutes || 90;

@@ -8,31 +8,7 @@ import {
 import { AddPlayerModal } from '../Modals/AddPlayerModal';
 import { UpdateStatsModal } from '../Modals/UpdateStatsModal';
 import { getPlayerInjuryStatus, formatDateSpanish } from '../../utils/injuryHelper';
-import { calculateSquadStatsByCompetition, getCompetitionLeaders } from '../../utils/statsHelper';
-
-// Football pitch position hierarchy: Portero -> DFC -> Laterales -> MCD -> MC -> Extremos -> DC
-const POSITION_RANK = {
-  'POR': 1, 'GK': 1, 'PT': 1,
-  'DFC': 2, 'CB': 2, 'CEN': 2, 'CENTRAL': 2,
-  'LD': 3, 'CAD': 3, 'RB': 3, 'RWB': 3,
-  'LI': 4, 'CAI': 4, 'LB': 4, 'LWB': 4,
-  'MCD': 5, 'CDM': 5, 'DM': 5, 'PIV': 5, 'PIVOTE': 5,
-  'MC': 6, 'CM': 6, 'MED': 6,
-  'MCO': 7, 'CAM': 7,
-  'MD': 8, 'RM': 8,
-  'MI': 9, 'LM': 9,
-  'ED': 10, 'RW': 10,
-  'EI': 11, 'LW': 11,
-  'EXT': 10,
-  'SD': 12, 'CF': 12,
-  'DC': 13, 'ST': 13, 'DEL': 13
-};
-
-const getPositionRank = (pos) => {
-  if (!pos) return 99;
-  const upper = String(pos).trim().toUpperCase();
-  return POSITION_RANK[upper] !== undefined ? POSITION_RANK[upper] : 99;
-};
+import { calculateSquadStatsByCompetition, getCompetitionLeaders, getPositionRank } from '../../utils/statsHelper';
 
 export const SquadStatsTab = () => {
   const { 

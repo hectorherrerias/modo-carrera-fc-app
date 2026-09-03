@@ -2,6 +2,53 @@
  * Helper utilities for calculating and aggregating player and team stats by competition
  */
 
+export const POSITION_RANK = {
+  // 1. Portero
+  'POR': 1, 'GK': 1, 'PT': 1,
+  
+  // 2. DFC (Defensas Centrales)
+  'DFC': 2, 'CB': 2, 'CEN': 2, 'CENTRAL': 2,
+  
+  // 3. Laterales (Derecho, Izquierdo, Carrileros)
+  'LD': 3, 'CAD': 3, 'RB': 3, 'RWB': 3,
+  'LI': 4, 'CAI': 4, 'LB': 4, 'LWB': 4,
+  
+  // 4. MCD (Pivote defensivo)
+  'MCD': 5, 'CDM': 5, 'DM': 5, 'PIV': 5, 'PIVOTE': 5,
+  
+  // 5. MC (Mediocentros y Mediapuntas)
+  'MC': 6, 'CM': 6, 'MED': 6,
+  'MCO': 7, 'CAM': 7,
+  
+  // 6. Extremos y Bandas
+  'MD': 8, 'RM': 8,
+  'MI': 9, 'LM': 9,
+  'ED': 10, 'RW': 10,
+  'EI': 11, 'LW': 11,
+  'EXT': 10,
+  
+  // 7. DC (Delantero Centro y Segundo Delantero)
+  'SD': 12, 'CF': 12,
+  'DC': 13, 'ST': 13, 'DEL': 13
+};
+
+export const getPositionRank = (pos) => {
+  if (!pos) return 99;
+  const upper = String(pos).trim().toUpperCase();
+  return POSITION_RANK[upper] !== undefined ? POSITION_RANK[upper] : 99;
+};
+
+export const sortPlayersByPositionHierarchy = (players = []) => {
+  return [...players].sort((a, b) => {
+    const rankA = getPositionRank(a.position);
+    const rankB = getPositionRank(b.position);
+    if (rankA !== rankB) return rankA - rankB;
+    const ovrDiff = (Number(b.overall) || 0) - (Number(a.overall) || 0);
+    if (ovrDiff !== 0) return ovrDiff;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+};
+
 const cleanSheetPositions = new Set(['POR', 'GK', 'PT', 'DFC', 'CB', 'CENTRAL', 'LD', 'LI', 'CAD', 'CAI', 'RB', 'LB', 'RWB', 'LWB']);
 
 /**

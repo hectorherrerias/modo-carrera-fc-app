@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Search, Filter, Percent, ShieldCheck, Flame
 } from 'lucide-react';
 import { ClubLogo } from '../ClubLogo';
+import { sortPlayersByPositionHierarchy } from '../../utils/statsHelper';
 
 export const MatchesCalendarTab = () => {
   const { activeClub, activeSeason, currentPlayers, currentMatches, addMatch, updateMatch, deleteMatch } = useApp();
@@ -277,7 +278,17 @@ export const MatchesCalendarTab = () => {
             const isExpanded = expandedMatchId === match.id;
             const officialMVPObj = currentPlayers.find(p => p.id === match.officialMVP);
             const myMVPObj = currentPlayers.find(p => p.id === match.myMVP);
-            const participants = match.playersInvolved || [];
+            const rawParticipants = (match.playersInvolved || []).map(p => {
+              const pObj = currentPlayers.find(cp => cp.id === p.playerId);
+              return {
+                ...p,
+                name: pObj?.name || p.playerName || 'Jugador',
+                playerName: pObj?.name || p.playerName || 'Jugador',
+                position: pObj?.position || p.position || 'MC',
+                overall: pObj?.overall || 75
+              };
+            });
+            const participants = sortPlayersByPositionHierarchy(rawParticipants);
 
             return (
               <div
