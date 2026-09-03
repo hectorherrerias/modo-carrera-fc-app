@@ -1,10 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { parseCompVoiceDictation } from '../../utils/compVoiceParser';
-import { Trophy, Award, Crown, Plus, Edit2, Check, X, Mic, MicOff, Sparkles, Bot, Trash2, Star, Medal, Flame } from 'lucide-react';
+import { Trophy, Award, Crown, Plus, Edit2, Check, X, Mic, MicOff, Sparkles, Bot, Trash2, Star, Medal, Flame, Activity } from 'lucide-react';
+import { calculateSquadStatsByCompetition, getCompetitionLeaders, getCompetitionTeamSummary } from '../../utils/statsHelper';
 
 export const CompetitionsTab = () => {
-  const { activeSeason, currentPlayers, addCompetition, updateCompetitionEntry, deleteCompetitionEntry, updateAwards } = useApp();
+  const { 
+    activeSeason, 
+    currentPlayers, 
+    currentMatches, 
+    addCompetition, 
+    updateCompetitionEntry, 
+    deleteCompetitionEntry, 
+    updateAwards 
+  } = useApp();
 
   const [isCompModalOpen, setIsCompModalOpen] = useState(false);
   const [editingComp, setEditingComp] = useState(null);
@@ -27,7 +36,7 @@ export const CompetitionsTab = () => {
     topAssister: activeSeason?.awards?.topAssister || ''
   });
 
-  // Top 3 Official MVPs and Top 3 Manager MVPs
+  // Top 3 Official MVPs and Top 3 Manager MVPs across season
   const topOfficialMVPs = useMemo(() => {
     return [...(currentPlayers || [])]
       .filter(p => (p.officialMVPs || 0) > 0)
@@ -122,7 +131,6 @@ export const CompetitionsTab = () => {
         computedResult = Number(leaguePlacement) === 1 ? "1º Campeón 🏆" : `${leaguePlacement}º Puesto`;
       }
     } else {
-      // Cup
       if (compStatus === 'en_curso') {
         computedResult = `En Curso (${cupRound})`;
       } else {
@@ -181,7 +189,7 @@ export const CompetitionsTab = () => {
               });
               setIsEditingAwards(!isEditingAwards);
             }}
-            className="flex items-center space-x-1 text-xs text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl hover:bg-amber-500/20 transition-all"
+            className="flex items-center space-x-1 text-xs text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl hover:bg-amber-500/20 transition-all cursor-pointer"
           >
             <Edit2 className="w-3.5 h-3.5" />
             <span>Editar Premios</span>
@@ -227,13 +235,13 @@ export const CompetitionsTab = () => {
               <button
                 type="button"
                 onClick={() => setIsEditingAwards(false)}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold bg-amber-400 text-slate-950 rounded-lg shadow"
+                className="px-4 py-1.5 text-xs font-bold bg-amber-400 text-slate-950 rounded-lg shadow cursor-pointer"
               >
                 Guardar Premios
               </button>
@@ -380,70 +388,119 @@ export const CompetitionsTab = () => {
         </div>
       </div>
 
-      {/* Competitions Section */}
+      {/* Official Competitions Grid with Tournament Performance Cards */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-xl font-black text-white font-outfit">Competiciones Oficiales</h3>
-            <p className="text-xs text-slate-400">Edita el estado, rondas eliminatorias o posición final de tus torneos</p>
+            <h3 className="text-xl font-black text-white font-outfit">Competiciones Oficiales y Rendimiento</h3>
+            <p className="text-xs text-slate-400">Estadísticas exclusivas de tu club y líderes de goleo en cada torneo</p>
           </div>
 
           <button
             onClick={handleOpenAddModal}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:bg-emerald-400 transition-all"
+            className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg hover:bg-emerald-400 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Añadir Competición</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {competitions.map((comp) => {
             const isWinner = comp.result?.includes('1º') || comp.result?.includes('Campeó');
+            const summary = getCompetitionTeamSummary(currentMatches, comp.name);
+            const compPlayers = calculateSquadStatsByCompetition(currentPlayers, currentMatches, comp.name);
+            const compLeaders = getCompetitionLeaders(compPlayers);
+
             return (
               <div
                 key={comp.id || comp.name}
-                className={`bg-slate-900 border rounded-2xl p-5 shadow-lg flex items-center justify-between transition-all ${
-                  isWinner ? 'border-amber-500/50 bg-gradient-to-r from-amber-950/30 to-slate-900' : 'border-slate-800'
+                className={`bg-slate-900 border rounded-3xl p-5 shadow-xl flex flex-col justify-between transition-all space-y-4 ${
+                  isWinner ? 'border-amber-500/50 bg-gradient-to-b from-amber-950/30 to-slate-900' : 'border-slate-800'
                 }`}
               >
-                <div className="flex items-center space-x-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl border ${
-                    isWinner ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-slate-950 border-slate-800 text-slate-300'
-                  }`}>
-                    {isWinner ? '🏆' : '⚽'}
+                {/* Header info */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-2xl border ${
+                      isWinner ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-lg shadow-amber-500/20' : 'bg-slate-950 border-slate-800 text-slate-300'
+                    }`}>
+                      {isWinner ? '🏆' : '⚽'}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-lg text-white font-outfit">{comp.name}</h4>
+                      <p className="text-[11px] text-slate-400">
+                        Tipo: {comp.type === 'league' ? 'Liga Regular' : 'Torneo de Eliminación'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-extrabold text-base text-white">{comp.name}</h4>
-                    <p className="text-[11px] text-slate-400">
-                      Tipo: {comp.type === 'league' ? 'Liga de Puntos' : 'Copa Eliminatoria'}
-                    </p>
+
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={() => handleOpenEditModal(comp)}
+                      title="Editar estado del torneo"
+                      className="p-1.5 rounded-lg border border-slate-800 hover:border-amber-500/50 text-slate-400 hover:text-amber-400 bg-slate-950 transition-all cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteComp(comp.id, comp.name)}
+                      title="Eliminar torneo"
+                      className="p-1.5 rounded-lg border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 bg-slate-950 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <div className={`px-3 py-1.5 rounded-xl font-extrabold text-xs border ${
-                    isWinner ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-slate-950 border-emerald-500/30 text-emerald-400'
+                {/* Status & Result Banner */}
+                <div className="flex items-center justify-between bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                  <span className="text-xs text-slate-400 font-semibold">Estado actual:</span>
+                  <div className={`px-3 py-1 rounded-xl font-black text-xs border ${
+                    isWinner ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300'
                   }`}>
                     {comp.result}
                   </div>
-
-                  <button
-                    onClick={() => handleOpenEditModal(comp)}
-                    title="Editar estado del torneo"
-                    className="p-1.5 rounded-lg border border-slate-800 hover:border-amber-500/50 text-slate-400 hover:text-amber-400 bg-slate-950 transition-all"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteComp(comp.id, comp.name)}
-                    title="Eliminar torneo"
-                    className="p-1.5 rounded-lg border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 bg-slate-950 transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
+
+                {/* Tournament Match Record Metrics */}
+                <div className="grid grid-cols-4 gap-2 text-center bg-slate-950/40 p-2.5 rounded-2xl border border-slate-800/80 text-xs">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-500 block">Partidos</span>
+                    <strong className="text-white font-black text-sm">{summary.total}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-emerald-400 block">V - E - D</span>
+                    <span className="text-slate-200 font-bold text-xs">{summary.wins}-{summary.draws}-{summary.losses}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-cyan-400 block">Goles (F/C)</span>
+                    <span className="text-slate-200 font-bold text-xs">{summary.goalsFor} / {summary.goalsAgainst}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-amber-400 block">% Victorias</span>
+                    <strong className="text-amber-400 font-black text-xs">{summary.winRate}%</strong>
+                  </div>
+                </div>
+
+                {/* Top Tournament Players */}
+                <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="flex items-center space-x-1.5 text-slate-300 truncate">
+                    <span>⚽</span>
+                    <span className="truncate">
+                      Goleador: <strong className="text-emerald-400">{compLeaders.topScorer ? `${compLeaders.topScorer.name} (${compLeaders.topScorer.computedStats?.goals})` : '-'}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-1.5 text-slate-300 truncate">
+                    <span>👟</span>
+                    <span className="truncate">
+                      Asistente: <strong className="text-cyan-400">{compLeaders.topAssister ? `${compLeaders.topAssister.name} (${compLeaders.topAssister.computedStats?.assists})` : '-'}</strong>
+                    </span>
+                  </div>
+                </div>
+
               </div>
             );
           })}
@@ -459,7 +516,7 @@ export const CompetitionsTab = () => {
               <h3 className="font-bold text-white text-base">
                 {editingComp ? 'Editar Estado de Competición' : 'Añadir Competición'}
               </h3>
-              <button onClick={() => setIsCompModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button onClick={() => setIsCompModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -474,7 +531,7 @@ export const CompetitionsTab = () => {
               <button
                 type="button"
                 onClick={handleToggleVoiceDictation}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-all ${
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-black transition-all cursor-pointer ${
                   isListening
                     ? 'bg-rose-500 text-white animate-pulse'
                     : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
@@ -550,7 +607,6 @@ export const CompetitionsTab = () => {
                   </div>
                 )
               ) : (
-                // Cup / Champions
                 compStatus === 'en_curso' ? (
                   <div>
                     <label className="block text-xs font-semibold text-cyan-400 uppercase mb-1">Ronda Actual Jugando</label>
@@ -591,13 +647,13 @@ export const CompetitionsTab = () => {
                 <button
                   type="button"
                   onClick={() => setIsCompModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1"
+                  className="px-5 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-1 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>Guardar Torneo</span>

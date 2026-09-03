@@ -15,11 +15,24 @@ import { PressConferenceTab } from '../components/Tabs/PressConferenceTab';
 import { PressNewsTab } from '../components/Tabs/PressNewsTab';
 import { EditClubModal } from '../components/Modals/EditClubModal';
 import { EditSeasonModal } from '../components/Modals/EditSeasonModal';
+import { PlayerRecoveryModal } from '../components/Modals/PlayerRecoveryModal';
 import { ClubLogo } from '../components/ClubLogo';
 import { MobileBottomNav } from '../components/MobileBottomNav';
 
 export const SeasonDashboardView = () => {
-  const { activeClub, activeSeason, updateClub, updateSeason, deleteSeason, clubSeasons, recordMatchResult, computedWinRate, currentMatches } = useApp();
+  const { 
+    activeClub, 
+    activeSeason, 
+    updateClub, 
+    updateSeason, 
+    deleteSeason, 
+    clubSeasons, 
+    recordMatchResult, 
+    computedWinRate, 
+    currentMatches,
+    recoveredPlayersQueue,
+    dismissRecoveredModal
+  } = useApp();
   const [activeTab, setActiveTab] = useState('tactics');
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
   const [isEditSeasonModalOpen, setIsEditSeasonModalOpen] = useState(false);
@@ -321,6 +334,13 @@ export const SeasonDashboardView = () => {
         onSave={updateSeason}
         onDelete={deleteSeason}
         canDelete={clubSeasons.length > 1}
+      />
+
+      <PlayerRecoveryModal
+        isOpen={recoveredPlayersQueue && recoveredPlayersQueue.length > 0}
+        recoveredPlayers={recoveredPlayersQueue}
+        onClose={dismissRecoveredModal}
+        clubName={activeClub?.name || 'Tu Club'}
       />
 
     </div>

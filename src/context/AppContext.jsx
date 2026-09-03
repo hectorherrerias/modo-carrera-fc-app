@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { INITIAL_DATA } from '../mockData';
 import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
 import { generateNewsFromMatchResultAsync } from '../utils/pressAIEngine';
+import { buildInjuryObject, findRecoveredPlayersForDate, parseDurationDaysFromString, formatToISODate } from '../utils/injuryHelper';
 
 const AppContext = createContext();
 
@@ -271,6 +272,46 @@ export const AppProvider = ({ children }) => {
   const currentPress = (data.pressConferences || []).filter(p => p.seasonId === activeSeasonId);
   const currentNews = (data.newsArticles || []).filter(n => n.seasonId === activeSeasonId);
 
+  // Recovered players modal queue
+  const [recoveredPlayersQueue, setRecoveredPlayersQueue] = useState([]);
+
+  // Dynamic Current Match Calendar Date
+  const latestMatchDate = useMemo(() => {
+    if (!currentMatches || currentMatches.length === 0) return new Date().toISOString().split('T')[0];
+    const sorted = [...currentMatches].sort((a, b) => new Date(formatToISODate(b.date || '')) - new Date(formatToISODate(a.date || '')));
+    return formatToISODate(sorted[0]?.date);
+  }, [currentMatches]);
+
+  const dismissRecoveredModal = useCallback(() => {
+    setRecoveredPlayersQueue([]);
+  }, []);
+
+  const manuallyDischargePlayer = useCallback((playerId) => {
+    let recoveredPlayerObj = null;
+    setData(prev => ({
+      ...prev,
+      players: prev.players.map(p => {
+        if (p.id === playerId) {
+          recoveredPlayerObj = {
+            ...p,
+            status: 'Disponible',
+            injuryDetails: p.injury || { injuryType: 'Lesión', durationLabel: 'Alta Médica' }
+          };
+          return {
+            ...p,
+            status: 'Disponible',
+            injury: p.injury ? { ...p.injury, recovered: true } : null
+          };
+        }
+        return p;
+      })
+    }));
+
+    if (recoveredPlayerObj) {
+      setRecoveredPlayersQueue(prev => [...prev, recoveredPlayerObj]);
+    }
+  }, []);
+
   // Dynamic Win Rate Math per User
   const clubTotalWins = clubSeasons.reduce((acc, s) => acc + (s.matchResults?.wins || 0), 0);
   const clubTotalDraws = clubSeasons.reduce((acc, s) => acc + (s.matchResults?.draws || 0), 0);
@@ -491,6 +532,16 @@ export const AppProvider = ({ children }) => {
     if (!activeSeasonId) return;
     const ovr = Number(playerInfo.overall) || 75;
     const initOvr = Number(playerInfo.initialOvr) || ovr;
+    const rawStatus = playerInfo.status || "Disponible";
+
+    let injuryObj = playerInfo.injury || null;
+    if (!injuryObj && rawStatus.toLowerCase().includes('lesionad')) {
+      injuryObj = buildInjuryObject({
+        durationDays: parseDurationDaysFromString(rawStatus),
+        startDate: latestMatchDate,
+        injuryType: playerInfo.injuryType || 'Lesión muscular'
+      });
+    }
 
     const newPlayer = {
       id: "p_" + Date.now(),
@@ -500,7 +551,8 @@ export const AppProvider = ({ children }) => {
       overall: ovr,
       initialOvr: initOvr,
       contractYears: Number(playerInfo.contractYears) >= 0 ? Number(playerInfo.contractYears) : 3,
-      status: playerInfo.status || "Disponible",
+      status: rawStatus,
+      injury: injuryObj,
       officialMVPs: Number(playerInfo.officialMVPs) || 0,
       myMVPs: Number(playerInfo.myMVPs) || 0,
       stats: {
@@ -527,6 +579,18 @@ export const AppProvider = ({ children }) => {
         if (p.id === playerId) {
           const newOvr = updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall;
           const newInitOvr = updatedStats.initialOvr !== undefined ? Number(updatedStats.initialOvr) : (p.initialOvr !== undefined ? p.initialOvr : p.overall);
+          const newStatus = updatedStats.status !== undefined ? updatedStats.status : (p.status || "Disponible");
+
+          let newInjury = updatedStats.injury !== undefined ? updatedStats.injury : p.injury;
+          if (newStatus.toLowerCase().includes('disponible')) {
+            newInjury = null;
+          } else if (newStatus.toLowerCase().includes('lesionad') && !newInjury) {
+            newInjury = buildInjuryObject({
+              durationDays: parseDurationDaysFromString(newStatus),
+              startDate: latestMatchDate,
+              injuryType: 'Lesión muscular'
+            });
+          }
 
           return {
             ...p,
@@ -535,7 +599,8 @@ export const AppProvider = ({ children }) => {
             overall: newOvr,
             initialOvr: newInitOvr,
             contractYears: updatedStats.contractYears !== undefined ? Number(updatedStats.contractYears) : (p.contractYears ?? 3),
-            status: updatedStats.status !== undefined ? updatedStats.status : (p.status || "Disponible"),
+            status: newStatus,
+            injury: newInjury,
             officialMVPs: updatedStats.officialMVPs !== undefined ? Number(updatedStats.officialMVPs) : (p.officialMVPs || 0),
             myMVPs: updatedStats.myMVPs !== undefined ? Number(updatedStats.myMVPs) : (p.myMVPs || 0),
             stats: {
@@ -661,10 +726,35 @@ export const AppProvider = ({ children }) => {
         return p;
       });
 
+      // 3. Check for any injured players who recovered on this match date
+      const seasonPlayers = prev.players.filter(p => p.seasonId === activeSeasonId);
+      const recoveredOnMatch = findRecoveredPlayersForDate(seasonPlayers, newMatch.date);
+      let finalPlayers = updatedPlayers;
+      if (recoveredOnMatch.length > 0) {
+        const recoveredIds = new Set(recoveredOnMatch.map(p => p.id));
+        finalPlayers = updatedPlayers.map(p => {
+          if (recoveredIds.has(p.id)) {
+            return {
+              ...p,
+              status: 'Disponible',
+              injury: p.injury ? { ...p.injury, recovered: true } : null
+            };
+          }
+          return p;
+        });
+        setTimeout(() => {
+          setRecoveredPlayersQueue(prevQ => {
+            const existingIds = new Set(prevQ.map(p => p.id));
+            const newItems = recoveredOnMatch.filter(p => !existingIds.has(p.id));
+            return [...prevQ, ...newItems];
+          });
+        }, 300);
+      }
+
       return {
         ...prev,
         seasons: updatedSeasons,
-        players: updatedPlayers,
+        players: finalPlayers,
         matches: [newMatch, ...(prev.matches || [])]
       };
     });
@@ -884,10 +974,35 @@ export const AppProvider = ({ children }) => {
         return p;
       });
 
+      // 3. Check for any injured players who recovered on updated match date
+      const seasonPlayers = prev.players.filter(p => p.seasonId === sId);
+      const recoveredOnMatch = findRecoveredPlayersForDate(seasonPlayers, newMatch.date);
+      let finalPlayers = updatedPlayers;
+      if (recoveredOnMatch.length > 0) {
+        const recoveredIds = new Set(recoveredOnMatch.map(p => p.id));
+        finalPlayers = updatedPlayers.map(p => {
+          if (recoveredIds.has(p.id)) {
+            return {
+              ...p,
+              status: 'Disponible',
+              injury: p.injury ? { ...p.injury, recovered: true } : null
+            };
+          }
+          return p;
+        });
+        setTimeout(() => {
+          setRecoveredPlayersQueue(prevQ => {
+            const existingIds = new Set(prevQ.map(p => p.id));
+            const newItems = recoveredOnMatch.filter(p => !existingIds.has(p.id));
+            return [...prevQ, ...newItems];
+          });
+        }, 300);
+      }
+
       return {
         ...prev,
         seasons: updatedSeasons,
-        players: updatedPlayers,
+        players: finalPlayers,
         matches: prev.matches.map(m => m.id === matchId ? newMatch : m)
       };
     });
@@ -1327,6 +1442,10 @@ export const AppProvider = ({ children }) => {
       currentShortlist,
       currentYouth,
       currentMatches,
+      latestMatchDate,
+      recoveredPlayersQueue,
+      dismissRecoveredModal,
+      manuallyDischargePlayer,
       currentPress,
       currentNews,
       computedWinRate,

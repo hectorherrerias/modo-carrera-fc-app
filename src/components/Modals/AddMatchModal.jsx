@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, X, Check, Award, Trophy, Users, Zap, Plus, Minus, 
-  Star, Crown, Shield, AlertTriangle, Info, Home, Plane, Edit3 
+  Star, Crown, Shield, AlertTriangle, Info, Home, Plane, Edit3, HeartPulse 
 } from 'lucide-react';
+import { getPlayerInjuryStatus } from '../../utils/injuryHelper';
 
 const formatToISODate = (dateStr) => {
   if (!dateStr) return new Date().toISOString().split('T')[0];
@@ -634,7 +635,7 @@ export const AddMatchModal = ({
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
                         
                         {/* Checkbox & Player Info */}
-                        <label className="flex items-center space-x-2.5 cursor-pointer select-none min-w-[180px]">
+                        <label className="flex items-center space-x-2.5 cursor-pointer select-none min-w-[180px] flex-wrap gap-y-1">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -646,6 +647,26 @@ export const AddMatchModal = ({
                           </span>
                           <span className="font-extrabold text-white text-xs">{player.name}</span>
                           <span className="text-[10px] font-bold text-amber-400">{player.overall}</span>
+
+                          {(() => {
+                            const injuryInfo = getPlayerInjuryStatus(player, date);
+                            if (injuryInfo.isInjured) {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-950/90 text-rose-300 border border-rose-500/40">
+                                  <HeartPulse className="w-2.5 h-2.5 mr-1 text-rose-400 animate-pulse" />
+                                  <span>{injuryInfo.daysLeft}d restantes</span>
+                                </span>
+                              );
+                            }
+                            if (injuryInfo.isRecovered) {
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/40">
+                                  <span>✨ Alta Médica</span>
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </label>
 
                         {/* Interactive Stats Counters for this Player */}

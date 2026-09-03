@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Move, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ArrowUpDown, Swords, Shield, LayoutList, ChevronRight } from 'lucide-react';
+import { Move, RotateCcw, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ArrowUpDown, Swords, Shield, LayoutList, ChevronRight, HeartPulse } from 'lucide-react';
+import { getPlayerInjuryStatus } from '../utils/injuryHelper';
 
 export const FORMATION_PRESETS = {
   "4-2-3-1 (Estrecho)": [
@@ -420,6 +421,7 @@ export const FootballPitch = ({
               const positionLabel = assignedItem.position || baseSlot.pos;
               const starterName = assignedItem.playerName || "Sin asignar";
               const overall = starterPlayer ? starterPlayer.overall : (assignedItem.playerName ? 75 : "--");
+              const starterInjury = starterPlayer ? getPlayerInjuryStatus(starterPlayer) : { isInjured: false };
 
               return (
                 <div
@@ -475,7 +477,7 @@ export const FootballPitch = ({
                     </span>
 
                     {/* Circular Rating Node */}
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 shadow-xl ${
+                    <div className={`relative w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 shadow-xl ${
                       starterPlayer 
                         ? isOfensive 
                           ? 'bg-gradient-to-tr from-slate-900 to-slate-800 border-emerald-400 shadow-emerald-950'
@@ -485,6 +487,16 @@ export const FootballPitch = ({
                       <span className="font-black text-xs sm:text-sm text-white">
                         {overall}
                       </span>
+
+                      {/* Injury Badge Overlay */}
+                      {starterInjury.isInjured && (
+                        <div 
+                          title={`Jugador lesionado: ${starterInjury.badgeText}`}
+                          className="absolute -top-1 -right-1 bg-rose-600 border border-slate-950 text-white p-0.5 rounded-full z-20 shadow-md animate-pulse"
+                        >
+                          <HeartPulse className="w-2.5 h-2.5" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Player Name Pill */}
@@ -517,22 +529,34 @@ export const FootballPitch = ({
                       </div>
                     ) : (
                       <div className="space-y-1 max-h-16 overflow-y-auto scrollbar-none">
-                        {positionSubs.map((sub, sIdx) => (
-                          <div
-                            key={sIdx}
-                            onClick={() => onSwapStarterSub && onSwapStarterSub(index, sub.name)}
-                            title="Haz clic para poner de Titular"
-                            className="bg-slate-900 hover:bg-cyan-950/60 border border-slate-800 hover:border-cyan-500/50 rounded px-1.5 py-0.5 flex items-center justify-between cursor-pointer transition-all"
-                          >
-                            <span className="text-[9px] font-bold text-slate-200 truncate max-w-[60px]">
-                              {sub.name}
-                            </span>
-                            <div className="flex items-center space-x-0.5 text-amber-400 text-[9px] font-bold">
-                              <span>{sub.overall || '--'}</span>
-                              <ArrowUpDown className="w-2 h-2 text-cyan-400" />
+                        {positionSubs.map((sub, sIdx) => {
+                          const subPlayer = players.find(p => p.name.toLowerCase() === sub.name?.toLowerCase());
+                          const subInjury = subPlayer ? getPlayerInjuryStatus(subPlayer) : { isInjured: false };
+
+                          return (
+                            <div
+                              key={sIdx}
+                              onClick={() => onSwapStarterSub && onSwapStarterSub(index, sub.name)}
+                              title={subInjury.isInjured ? `Lesionado: ${subInjury.badgeText}` : "Haz clic para poner de Titular"}
+                              className={`border rounded px-1.5 py-0.5 flex items-center justify-between cursor-pointer transition-all ${
+                                subInjury.isInjured
+                                  ? 'bg-rose-950/40 border-rose-500/40 hover:bg-rose-950/60'
+                                  : 'bg-slate-900 hover:bg-cyan-950/60 border-slate-800 hover:border-cyan-500/50'
+                              }`}
+                            >
+                              <div className="flex items-center space-x-1 truncate max-w-[65px]">
+                                {subInjury.isInjured && <HeartPulse className="w-2 h-2 text-rose-400 shrink-0 animate-pulse" />}
+                                <span className={`text-[9px] font-bold truncate ${subInjury.isInjured ? 'text-rose-300' : 'text-slate-200'}`}>
+                                  {sub.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-0.5 text-amber-400 text-[9px] font-bold">
+                                <span>{sub.overall || '--'}</span>
+                                <ArrowUpDown className="w-2 h-2 text-cyan-400" />
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
