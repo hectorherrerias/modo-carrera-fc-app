@@ -150,7 +150,9 @@ export const AppProvider = ({ children }) => {
             ],
             players: [],
             transfers: [],
+            shortlist: [],
             youthAcademy: [],
+            matches: [],
             pressConferences: [],
             newsArticles: []
           };
@@ -232,28 +234,33 @@ export const AppProvider = ({ children }) => {
   const [activeClubId, setActiveClubId] = useState(null);
   const [activeSeasonId, setActiveSeasonId] = useState(null);
 
-  // Sync active club & season whenever data changes
+  // Sync active club & season whenever data changes without race conditions or circular resets
   useEffect(() => {
-    if (data.clubs && data.clubs.length > 0) {
-      const currentActiveClub = data.clubs.find(c => c.id === activeClubId) || data.clubs[0];
-      setActiveClubId(currentActiveClub.id);
-
-      const clubSeasons = data.seasons.filter(s => s.clubId === currentActiveClub.id);
-      if (clubSeasons.length > 0) {
-        const currentActiveSeason = clubSeasons.find(s => s.id === activeSeasonId) || clubSeasons[clubSeasons.length - 1];
-        setActiveSeasonId(currentActiveSeason.id);
-      } else {
-        setActiveSeasonId(null);
-      }
-    } else {
+    if (!data.clubs || data.clubs.length === 0) {
       setActiveClubId(null);
       setActiveSeasonId(null);
+      return;
     }
-  }, [data, activeClubId, activeSeasonId]);
+
+    setActiveClubId(prevClubId => {
+      const exists = data.clubs.some(c => c.id === prevClubId);
+      const targetClubId = exists ? prevClubId : data.clubs[0].id;
+
+      const targetClubSeasons = (data.seasons || []).filter(s => s.clubId === targetClubId);
+      setActiveSeasonId(prevSeasonId => {
+        const seasonExists = targetClubSeasons.some(s => s.id === prevSeasonId);
+        return seasonExists 
+          ? prevSeasonId 
+          : (targetClubSeasons.length > 0 ? targetClubSeasons[targetClubSeasons.length - 1].id : null);
+      });
+
+      return targetClubId;
+    });
+  }, [data.clubs, data.seasons]);
 
   const selectClub = (clubId) => {
     setActiveClubId(clubId);
-    const clubSeasons = data.seasons.filter(s => s.clubId === clubId);
+    const clubSeasons = (data.seasons || []).filter(s => s.clubId === clubId);
     if (clubSeasons.length > 0) {
       setActiveSeasonId(clubSeasons[clubSeasons.length - 1].id);
     } else {
@@ -356,7 +363,7 @@ export const AppProvider = ({ children }) => {
   const updateClub = (clubId, updatedFields) => {
     setData(prev => ({
       ...prev,
-      clubs: prev.clubs.map(c => c.id === clubId ? { ...c, ...updatedFields } : c)
+      clubs: (prev.clubs || []).map(c => c.id === clubId ? { ...c, ...updatedFields } : c)
     }));
   };
 
@@ -404,18 +411,27 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      clubs: [...prev.clubs, club],
-      seasons: [...prev.seasons, firstSeason]
+      clubs: [...(prev.clubs || []), club],
+      seasons: [...(prev.seasons || []), firstSeason],
+      players: prev.players || [],
+      transfers: prev.transfers || [],
+      shortlist: prev.shortlist || [],
+      youthAcademy: prev.youthAcademy || [],
+      matches: prev.matches || [],
+      pressConferences: prev.pressConferences || [],
+      newsArticles: prev.newsArticles || []
     }));
 
     setActiveClubId(clubId);
     setActiveSeasonId(seasonId);
+
+    return { clubId, seasonId };
   };
 
   const updateSeason = (seasonId, updatedFields) => {
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === seasonId) {
           return {
             ...s,
@@ -430,11 +446,11 @@ export const AppProvider = ({ children }) => {
 
   const deleteSeason = (seasonId) => {
     setData(prev => {
-      const remainingSeasons = prev.seasons.filter(s => s.id !== seasonId);
-      const remainingPlayers = prev.players.filter(p => p.seasonId !== seasonId);
-      const remainingTransfers = prev.transfers.filter(t => t.seasonId !== seasonId);
+      const remainingSeasons = (prev.seasons || []).filter(s => s.id !== seasonId);
+      const remainingPlayers = (prev.players || []).filter(p => p.seasonId !== seasonId);
+      const remainingTransfers = (prev.transfers || []).filter(t => t.seasonId !== seasonId);
       const remainingShortlist = (prev.shortlist || []).filter(s => s.seasonId !== seasonId);
-      const remainingYouth = prev.youthAcademy.filter(y => y.seasonId !== seasonId);
+      const remainingYouth = (prev.youthAcademy || []).filter(y => y.seasonId !== seasonId);
       const remainingMatches = (prev.matches || []).filter(m => m.seasonId !== seasonId);
       const remainingPress = (prev.pressConferences || []).filter(p => p.seasonId !== seasonId);
       const remainingNews = (prev.newsArticles || []).filter(n => n.seasonId !== seasonId);
@@ -454,7 +470,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const addSeason = (seasonData) => {
-    if (!activeClubId) return;
+    if (!activeClubId) return null;
     const seasonId = "s_" + Date.now();
     
     const lastSeason = clubSeasons[clubSeasons.length - 1];
@@ -520,12 +536,13 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      seasons: [...prev.seasons, newSeason],
-      players: [...prev.players, ...copiedPlayers],
+      seasons: [...(prev.seasons || []), newSeason],
+      players: [...(prev.players || []), ...copiedPlayers],
       youthAcademy: [...(prev.youthAcademy || []), ...copiedYouth]
     }));
 
     setActiveSeasonId(seasonId);
+    return seasonId;
   };
 
   const addPlayer = (playerInfo) => {
@@ -568,14 +585,14 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      players: [...prev.players, newPlayer]
+      players: [...(prev.players || []), newPlayer]
     }));
   };
 
   const updatePlayerStats = (playerId, updatedStats) => {
     setData(prev => ({
       ...prev,
-      players: prev.players.map(p => {
+      players: (prev.players || []).map(p => {
         if (p.id === playerId) {
           const newOvr = updatedStats.overall !== undefined ? Number(updatedStats.overall) : p.overall;
           const newInitOvr = updatedStats.initialOvr !== undefined ? Number(updatedStats.initialOvr) : (p.initialOvr !== undefined ? p.initialOvr : p.overall);
@@ -604,8 +621,15 @@ export const AppProvider = ({ children }) => {
             officialMVPs: updatedStats.officialMVPs !== undefined ? Number(updatedStats.officialMVPs) : (p.officialMVPs || 0),
             myMVPs: updatedStats.myMVPs !== undefined ? Number(updatedStats.myMVPs) : (p.myMVPs || 0),
             stats: {
-              ...p.stats,
-              ...updatedStats.stats
+              minutes: 0,
+              matches: 0,
+              goals: 0,
+              assists: 0,
+              cleanSheets: 0,
+              yellowCards: 0,
+              redCards: 0,
+              ...(p.stats || {}),
+              ...(updatedStats.stats || {})
             }
           };
         }
@@ -617,7 +641,7 @@ export const AppProvider = ({ children }) => {
   const deletePlayer = (playerId) => {
     setData(prev => ({
       ...prev,
-      players: prev.players.filter(p => p.id !== playerId)
+      players: (prev.players || []).filter(p => p.id !== playerId)
     }));
   };
 
@@ -635,7 +659,7 @@ export const AppProvider = ({ children }) => {
       competition: matchData.competition || 'LaLiga EA Sports',
       venue: matchData.venue || 'local', // 'local' | 'visitante'
       result: matchData.result || 'V', // 'V' | 'E' | 'D'
-      score: matchData.score || '1 - 0',
+      score: matchData.score || `${Number(matchData.ourGoals) || 0} - ${Number(matchData.opponentGoals) || 0}`,
       ourGoals: Number(matchData.ourGoals) >= 0 ? Number(matchData.ourGoals) : 1,
       opponentGoals: Number(matchData.opponentGoals) >= 0 ? Number(matchData.opponentGoals) : 0,
       playersInvolved: matchData.playersInvolved || [], // [{ playerId, playerName, position, minutesPlayed, goals, assists, yellowCards, redCards }]
@@ -670,7 +694,7 @@ export const AppProvider = ({ children }) => {
     setData(prev => {
       // 1. Update match results in active season (wins, draws, losses)
       const resKey = newMatch.result === 'V' ? 'wins' : (newMatch.result === 'E' ? 'draws' : 'losses');
-      const updatedSeasons = prev.seasons.map(s => {
+      const updatedSeasons = (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
           return {
@@ -685,7 +709,7 @@ export const AppProvider = ({ children }) => {
       });
 
       // 2. Update players: stats & MVPs
-      const updatedPlayers = prev.players.map(p => {
+      const updatedPlayers = (prev.players || []).map(p => {
         if (p.seasonId !== activeSeasonId) return p;
 
         const isParticipant = playersInvolvedMap.has(p.id);
@@ -727,7 +751,7 @@ export const AppProvider = ({ children }) => {
       });
 
       // 3. Check for any injured players who recovered on this match date
-      const seasonPlayers = prev.players.filter(p => p.seasonId === activeSeasonId);
+      const seasonPlayers = (prev.players || []).filter(p => p.seasonId === activeSeasonId);
       const recoveredOnMatch = findRecoveredPlayersForDate(seasonPlayers, newMatch.date);
       let finalPlayers = updatedPlayers;
       if (recoveredOnMatch.length > 0) {
@@ -787,7 +811,7 @@ export const AppProvider = ({ children }) => {
       const resKey = matchToDelete.result === 'V' ? 'wins' : (matchToDelete.result === 'E' ? 'draws' : 'losses');
 
       // 1. Revert season match results
-      const updatedSeasons = prev.seasons.map(s => {
+      const updatedSeasons = (prev.seasons || []).map(s => {
         if (s.id === sId) {
           const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
           return {
@@ -816,7 +840,7 @@ export const AppProvider = ({ children }) => {
         }
       });
 
-      const updatedPlayers = prev.players.map(p => {
+      const updatedPlayers = (prev.players || []).map(p => {
         if (p.seasonId !== sId) return p;
 
         const isParticipant = playersInvolvedMap.has(p.id);
@@ -861,7 +885,7 @@ export const AppProvider = ({ children }) => {
         ...prev,
         seasons: updatedSeasons,
         players: updatedPlayers,
-        matches: prev.matches.filter(m => m.id !== matchId),
+        matches: (prev.matches || []).filter(m => m.id !== matchId),
         newsArticles: (prev.newsArticles || []).filter(n => n.matchId !== matchId || n.isFavorite)
       };
     });
@@ -886,12 +910,12 @@ export const AppProvider = ({ children }) => {
       updatedMatchObj = newMatch;
 
       // 1. Reconcile season match results if result changed
-      let updatedSeasons = prev.seasons;
+      let updatedSeasons = prev.seasons || [];
       if (oldMatch.result !== newMatch.result) {
         const oldKey = oldMatch.result === 'V' ? 'wins' : (oldMatch.result === 'E' ? 'draws' : 'losses');
         const newKey = newMatch.result === 'V' ? 'wins' : (newMatch.result === 'E' ? 'draws' : 'losses');
 
-        updatedSeasons = prev.seasons.map(s => {
+        updatedSeasons = (prev.seasons || []).map(s => {
           if (s.id === sId) {
             const currentResults = s.matchResults || { wins: 0, draws: 0, losses: 0 };
             return {
@@ -921,7 +945,7 @@ export const AppProvider = ({ children }) => {
         if (p.playerId) newPMap.set(p.playerId, p);
       });
 
-      const updatedPlayers = prev.players.map(p => {
+      const updatedPlayers = (prev.players || []).map(p => {
         if (p.seasonId !== sId) return p;
 
         const pPos = (p.position || '').toUpperCase();
@@ -975,7 +999,7 @@ export const AppProvider = ({ children }) => {
       });
 
       // 3. Check for any injured players who recovered on updated match date
-      const seasonPlayers = prev.players.filter(p => p.seasonId === sId);
+      const seasonPlayers = (prev.players || []).filter(p => p.seasonId === sId);
       const recoveredOnMatch = findRecoveredPlayersForDate(seasonPlayers, newMatch.date);
       let finalPlayers = updatedPlayers;
       if (recoveredOnMatch.length > 0) {
@@ -1003,7 +1027,7 @@ export const AppProvider = ({ children }) => {
         ...prev,
         seasons: updatedSeasons,
         players: finalPlayers,
-        matches: prev.matches.map(m => m.id === matchId ? newMatch : m)
+        matches: (prev.matches || []).map(m => m.id === matchId ? newMatch : m)
       };
     });
 
@@ -1038,7 +1062,7 @@ export const AppProvider = ({ children }) => {
     
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           const currentPhaseTactics = s[currentKey] || {};
           const otherPhaseTactics = s[otherKey] || {};
@@ -1088,7 +1112,7 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           const fromTactics = s[fromKey] || {};
           const toTactics = s[toKey] || {};
@@ -1135,8 +1159,8 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      transfers: [newTransfer, ...prev.transfers],
-      seasons: prev.seasons.map(s => {
+      transfers: [newTransfer, ...(prev.transfers || [])],
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           return {
             ...s,
@@ -1202,14 +1226,14 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      youthAcademy: [newYouth, ...prev.youthAcademy]
+      youthAcademy: [newYouth, ...(prev.youthAcademy || [])]
     }));
   };
 
   const updateYouthProspect = (youthId, updatedFields) => {
     setData(prev => ({
       ...prev,
-      youthAcademy: prev.youthAcademy.map(y => {
+      youthAcademy: (prev.youthAcademy || []).map(y => {
         if (y.id === youthId) {
           return { ...y, ...updatedFields };
         }
@@ -1221,12 +1245,12 @@ export const AppProvider = ({ children }) => {
   const deleteYouthProspect = (youthId) => {
     setData(prev => ({
       ...prev,
-      youthAcademy: prev.youthAcademy.filter(y => y.id !== youthId)
+      youthAcademy: (prev.youthAcademy || []).filter(y => y.id !== youthId)
     }));
   };
 
   const promoteYouthProspect = (youthId) => {
-    const youth = data.youthAcademy.find(y => y.id === youthId);
+    const youth = (data.youthAcademy || []).find(y => y.id === youthId);
     if (!youth || youth.promoted) return;
 
     const finalOverall = youth.currentOverall || youth.initialOverall || 70;
@@ -1242,8 +1266,8 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      players: [...prev.players, newPlayer],
-      youthAcademy: prev.youthAcademy.map(y => y.id === youthId ? { ...y, promoted: true } : y)
+      players: [...(prev.players || []), newPlayer],
+      youthAcademy: (prev.youthAcademy || []).map(y => y.id === youthId ? { ...y, promoted: true } : y)
     }));
   };
 
@@ -1307,7 +1331,7 @@ export const AppProvider = ({ children }) => {
 
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           return {
             ...s,
@@ -1323,7 +1347,7 @@ export const AppProvider = ({ children }) => {
     if (!activeSeasonId) return;
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           return {
             ...s,
@@ -1339,7 +1363,7 @@ export const AppProvider = ({ children }) => {
     if (!activeSeasonId) return;
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           return {
             ...s,
@@ -1355,7 +1379,7 @@ export const AppProvider = ({ children }) => {
     if (!activeSeasonId) return;
     setData(prev => ({
       ...prev,
-      seasons: prev.seasons.map(s => {
+      seasons: (prev.seasons || []).map(s => {
         if (s.id === activeSeasonId) {
           return {
             ...s,
@@ -1414,7 +1438,9 @@ export const AppProvider = ({ children }) => {
       ],
       players: [],
       transfers: [],
+      shortlist: [],
       youthAcademy: [],
+      matches: [],
       pressConferences: [],
       newsArticles: []
     };

@@ -43,13 +43,15 @@ export const MatchesCalendarTab = () => {
       else if (m.result === 'E') totalDraws++;
       else if (m.result === 'D') totalLosses++;
 
-      if (m.score && m.score.includes('-')) {
-        const parts = m.score.split('-').map(s => Number(s.trim()) || 0);
-        if (parts.length === 2) {
-          totalGoalsFor += parts[0];
-          totalGoalsAgainst += parts[1];
-        }
-      }
+      const gf = Number(m.ourGoals) >= 0 
+        ? Number(m.ourGoals) 
+        : (m.score && m.score.includes('-') ? (Number(m.score.split('-')[0].trim()) || 0) : 0);
+      const ga = Number(m.opponentGoals) >= 0 
+        ? Number(m.opponentGoals) 
+        : (m.score && m.score.includes('-') ? (Number(m.score.split('-')[1].trim()) || 0) : 0);
+
+      totalGoalsFor += gf;
+      totalGoalsAgainst += ga;
     });
 
     const total = matchesToCount.length;

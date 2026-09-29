@@ -12,6 +12,13 @@ export const ClubSelectionView = ({ onSelectClub }) => {
     onSelectClub(clubId);
   };
 
+  const handleAddClub = (newClubData) => {
+    const res = addClub(newClubData);
+    if (res && res.clubId) {
+      onSelectClub(res.clubId);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
@@ -121,7 +128,7 @@ export const ClubSelectionView = ({ onSelectClub }) => {
       <AddClubModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onAdd={addClub}
+        onAdd={handleAddClub}
       />
 
     </div>

@@ -36,6 +36,16 @@ export const CompetitionsTab = () => {
     topAssister: activeSeason?.awards?.topAssister || ''
   });
 
+  React.useEffect(() => {
+    if (activeSeason?.awards) {
+      setAwardsForm({
+        mvp: activeSeason.awards.mvp || '',
+        topScorer: activeSeason.awards.topScorer || '',
+        topAssister: activeSeason.awards.topAssister || ''
+      });
+    }
+  }, [activeSeason]);
+
   // Top 3 Official MVPs and Top 3 Manager MVPs across season
   const topOfficialMVPs = useMemo(() => {
     return [...(currentPlayers || [])]
