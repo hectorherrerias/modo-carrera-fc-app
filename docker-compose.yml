@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  modo-carrera-fc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: modo-carrera-fc-app
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
