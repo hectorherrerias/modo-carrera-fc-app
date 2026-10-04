@@ -77,7 +77,7 @@ export const SquadStatsTab = () => {
   const filteredPlayers = useMemo(() => {
     return squadStatsScoped
       .filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+        const matchesSearch = (p.name || '').toLowerCase().includes(search.toLowerCase());
         const matchesPos = positionFilter === 'ALL' || p.position === positionFilter;
         return matchesSearch && matchesPos;
       })
@@ -115,13 +115,17 @@ export const SquadStatsTab = () => {
           bVal = b.computedStats ? b.computedStats[sortField] || 0 : 0;
         }
 
-        if (typeof aVal === 'string') {
+        if (typeof aVal === 'string' || typeof bVal === 'string') {
+          const strA = String(aVal ?? '');
+          const strB = String(bVal ?? '');
           return sortOrder === 'asc' 
-            ? aVal.localeCompare(bVal) 
-            : bVal.localeCompare(aVal);
+            ? strA.localeCompare(strB) 
+            : strB.localeCompare(strA);
         }
 
-        return sortOrder === 'asc' ? (aVal - bVal) : (bVal - aVal);
+        const numA = Number(aVal) || 0;
+        const numB = Number(bVal) || 0;
+        return sortOrder === 'asc' ? (numA - numB) : (numB - numA);
       });
   }, [squadStatsScoped, search, positionFilter, sortField, sortOrder]);
 

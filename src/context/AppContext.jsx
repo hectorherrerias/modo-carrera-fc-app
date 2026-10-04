@@ -9,6 +9,34 @@ const AppContext = createContext();
 
 const DEFAULT_SEASON_NARRATIVE = "Llegamos con la máxima ilusión. El objetivo es competir en cada jornada, consolidar la solidez táctica del equipo y cumplir las expectativas de la directiva y de la afición.";
 
+export const DEFAULT_STARTING_XI_OFENSIVE = [
+  { position: "POR", playerName: "", substitutes: [] },
+  { position: "LD",  playerName: "", substitutes: [] },
+  { position: "DFC", playerName: "", substitutes: [] },
+  { position: "DFC", playerName: "", substitutes: [] },
+  { position: "LI",  playerName: "", substitutes: [] },
+  { position: "MCD", playerName: "", substitutes: [] },
+  { position: "MC",  playerName: "", substitutes: [] },
+  { position: "ED",  playerName: "", substitutes: [] },
+  { position: "MCO", playerName: "", substitutes: [] },
+  { position: "EI",  playerName: "", substitutes: [] },
+  { position: "DC",  playerName: "", substitutes: [] }
+];
+
+export const DEFAULT_STARTING_XI_DEFENSIVE = [
+  { position: "POR", playerName: "", substitutes: [] },
+  { position: "LD",  playerName: "", substitutes: [] },
+  { position: "DFC", playerName: "", substitutes: [] },
+  { position: "DFC", playerName: "", substitutes: [] },
+  { position: "LI",  playerName: "", substitutes: [] },
+  { position: "MD",  playerName: "", substitutes: [] },
+  { position: "MC",  playerName: "", substitutes: [] },
+  { position: "MC",  playerName: "", substitutes: [] },
+  { position: "MI",  playerName: "", substitutes: [] },
+  { position: "DC",  playerName: "", substitutes: [] },
+  { position: "DC",  playerName: "", substitutes: [] }
+];
+
 export const AppProvider = ({ children }) => {
   const { currentUser } = useAuth();
   
@@ -133,14 +161,14 @@ export const AppProvider = ({ children }) => {
                   width: 65,
                   depth: 70,
                   playersInBox: 6,
-                  startingXI: []
+                  startingXI: DEFAULT_STARTING_XI_OFENSIVE.map(s => ({ ...s }))
                 },
                 tacticsDefensive: {
                   formation: "4-4-2 (Plano)",
                   style: "Presión tras Pérdida",
                   width: 45,
                   depth: 40,
-                  startingXI: []
+                  startingXI: DEFAULT_STARTING_XI_DEFENSIVE.map(s => ({ ...s }))
                 },
                 competitions: [
                   { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
@@ -258,8 +286,12 @@ export const AppProvider = ({ children }) => {
     });
   }, [data.clubs, data.seasons]);
 
-  const selectClub = (clubId) => {
+  const selectClub = (clubId, preferredSeasonId = null) => {
     setActiveClubId(clubId);
+    if (preferredSeasonId) {
+      setActiveSeasonId(preferredSeasonId);
+      return;
+    }
     const clubSeasons = (data.seasons || []).filter(s => s.clubId === clubId);
     if (clubSeasons.length > 0) {
       setActiveSeasonId(clubSeasons[clubSeasons.length - 1].id);
@@ -394,14 +426,14 @@ export const AppProvider = ({ children }) => {
         width: 65,
         depth: 70,
         playersInBox: 6,
-        startingXI: []
+        startingXI: DEFAULT_STARTING_XI_OFENSIVE.map(s => ({ ...s }))
       },
       tacticsDefensive: {
         formation: "4-4-2 (Plano)",
         style: "Presión tras Pérdida",
         width: 45,
         depth: 40,
-        startingXI: []
+        startingXI: DEFAULT_STARTING_XI_DEFENSIVE.map(s => ({ ...s }))
       },
       competitions: [
         { id: "comp_" + Date.now(), name: "LaLiga EA Sports", type: "league", status: "en_curso", result: "En Curso" }
@@ -474,21 +506,26 @@ export const AppProvider = ({ children }) => {
     const seasonId = "s_" + Date.now();
     
     const lastSeason = clubSeasons[clubSeasons.length - 1];
-    const baseOfensive = lastSeason ? JSON.parse(JSON.stringify(lastSeason.tacticsOfensive || lastSeason.tactics || {})) : {
-      formation: "4-2-3-1 (Estrecho)",
-      style: "Posesión",
-      width: 65,
-      depth: 70,
-      playersInBox: 6,
-      startingXI: []
-    };
-    const baseDefensive = lastSeason ? JSON.parse(JSON.stringify(lastSeason.tacticsDefensive || lastSeason.tactics || {})) : {
-      formation: "4-4-2 (Plano)",
-      style: "Presión tras Pérdida",
-      width: 45,
-      depth: 40,
-      startingXI: []
-    };
+    const baseOfensive = lastSeason?.tacticsOfensive?.startingXI?.length > 0 
+      ? JSON.parse(JSON.stringify(lastSeason.tacticsOfensive)) 
+      : {
+          formation: "4-2-3-1 (Estrecho)",
+          style: "Posesión",
+          width: 65,
+          depth: 70,
+          playersInBox: 6,
+          startingXI: DEFAULT_STARTING_XI_OFENSIVE.map(s => ({ ...s }))
+        };
+
+    const baseDefensive = lastSeason?.tacticsDefensive?.startingXI?.length > 0 
+      ? JSON.parse(JSON.stringify(lastSeason.tacticsDefensive)) 
+      : {
+          formation: "4-4-2 (Plano)",
+          style: "Presión tras Pérdida",
+          width: 45,
+          depth: 40,
+          startingXI: DEFAULT_STARTING_XI_DEFENSIVE.map(s => ({ ...s }))
+        };
 
     const newSeason = {
       id: seasonId,
@@ -1077,13 +1114,17 @@ export const AppProvider = ({ children }) => {
           // If startingXI (starters/subs) changed and syncBothSquads is true, replicate player assignments to other phase
           if (phaseData.startingXI && syncBothSquads) {
             const currentXI = phaseData.startingXI;
-            const otherXI = otherPhaseTactics.startingXI || [];
+            const defaultOtherXI = phase === 'ofensive' ? DEFAULT_STARTING_XI_DEFENSIVE : DEFAULT_STARTING_XI_OFENSIVE;
+            const otherXI = (otherPhaseTactics.startingXI && otherPhaseTactics.startingXI.length > 0)
+              ? otherPhaseTactics.startingXI
+              : defaultOtherXI;
 
             const syncedOtherXI = currentXI.map((slot, idx) => {
-              const existingOtherSlot = otherXI[idx] || {};
+              const existingOtherSlot = otherXI[idx] || defaultOtherXI[idx] || {};
               return {
                 ...existingOtherSlot,
-                playerName: slot.playerName,
+                position: existingOtherSlot.position || slot.position || "MC",
+                playerName: slot.playerName || "",
                 substitutes: slot.substitutes ? [...slot.substitutes] : []
               };
             });
@@ -1116,14 +1157,18 @@ export const AppProvider = ({ children }) => {
         if (s.id === activeSeasonId) {
           const fromTactics = s[fromKey] || {};
           const toTactics = s[toKey] || {};
-          const fromXI = fromTactics.startingXI || [];
-          const toXI = toTactics.startingXI || [];
+          const fromXI = fromTactics.startingXI || (sourcePhase === 'ofensive' ? DEFAULT_STARTING_XI_OFENSIVE : DEFAULT_STARTING_XI_DEFENSIVE);
+          const defaultToXI = sourcePhase === 'ofensive' ? DEFAULT_STARTING_XI_DEFENSIVE : DEFAULT_STARTING_XI_OFENSIVE;
+          const toXI = (toTactics.startingXI && toTactics.startingXI.length > 0)
+            ? toTactics.startingXI
+            : defaultToXI;
 
           const syncedXI = fromXI.map((slot, idx) => {
-            const destSlot = toXI[idx] || {};
+            const destSlot = toXI[idx] || defaultToXI[idx] || {};
             return {
               ...destSlot,
-              playerName: slot.playerName,
+              position: destSlot.position || slot.position || "MC",
+              playerName: slot.playerName || "",
               substitutes: slot.substitutes ? [...slot.substitutes] : []
             };
           });

@@ -120,8 +120,8 @@ export const AddMatchModal = ({
       const starterNames = new Set(startingXI.map(s => s.playerName).filter(Boolean));
       
       const initialMap = {};
-      currentPlayers.forEach(p => {
-        if (starterNames.has(p.name)) {
+      (currentPlayers || []).forEach(p => {
+        if (p?.name && starterNames.has(p.name)) {
           initialMap[p.id] = { minutes: 90, goals: 0, assists: 0, yellowCards: 0, redCards: 0 };
         }
       });
@@ -248,11 +248,11 @@ export const AddMatchModal = ({
     const scoreString = `${Number(ourGoals) || 0} - ${Number(opponentGoals) || 0}`;
 
     const playersInvolved = Object.entries(playerMatchStats).map(([playerId, pStats]) => {
-      const pObj = currentPlayers.find(p => p.id === playerId);
+      const pObj = (currentPlayers || []).find(p => p && p.id === playerId);
       return {
         playerId,
-        playerName: pObj ? pObj.name : 'Jugador',
-        position: pObj ? pObj.position : 'DC',
+        playerName: pObj ? (pObj.name || 'Jugador') : 'Jugador',
+        position: pObj ? (pObj.position || 'DC') : 'DC',
         minutesPlayed: Number(pStats.minutes) || 90,
         goals: Number(pStats.goals) || 0,
         assists: Number(pStats.assists) || 0,

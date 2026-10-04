@@ -202,7 +202,7 @@ export const FORMATION_PRESETS = {
 
 export const FootballPitch = ({ 
   tactics, 
-  players, 
+  players = [], 
   phase = 'ofensive', 
   onSelectSlot, 
   onSwapStarterSub, 
@@ -409,16 +409,17 @@ export const FootballPitch = ({
           <div className="absolute inset-0 z-10 touch-none" style={{ touchAction: 'none' }}>
             {baseSlots.map((baseSlot, index) => {
               const assignedItem = startingXI[index] || { position: baseSlot.pos, playerName: "", substitutes: [] };
-              const starterPlayer = players.find(p => p.name.toLowerCase() === assignedItem.playerName?.toLowerCase());
+              const starterPlayer = (players || []).find(p => p && p.name && assignedItem.playerName && p.name.trim().toLowerCase() === assignedItem.playerName.trim().toLowerCase());
 
               const posX = assignedItem.customPos ? assignedItem.customPos.x : baseSlot.x;
               const posY = assignedItem.customPos ? assignedItem.customPos.y : baseSlot.y;
 
               const positionSubs = (assignedItem.substitutes || []).map(subName => {
-                return players.find(p => p.name.toLowerCase() === subName.toLowerCase()) || { name: subName, overall: 75 };
-              });
+                if (!subName) return null;
+                return (players || []).find(p => p && p.name && p.name.trim().toLowerCase() === String(subName).trim().toLowerCase()) || { name: String(subName), overall: 75 };
+              }).filter(Boolean);
 
-              const positionLabel = assignedItem.position || baseSlot.pos;
+              const positionLabel = baseSlot.pos || assignedItem.position || "POS";
               const starterName = assignedItem.playerName || "Sin asignar";
               const overall = starterPlayer ? starterPlayer.overall : (assignedItem.playerName ? 75 : "--");
               const starterInjury = starterPlayer ? getPlayerInjuryStatus(starterPlayer) : { isInjured: false };
@@ -530,7 +531,7 @@ export const FootballPitch = ({
                     ) : (
                       <div className="space-y-1 max-h-16 overflow-y-auto scrollbar-none">
                         {positionSubs.map((sub, sIdx) => {
-                          const subPlayer = players.find(p => p.name.toLowerCase() === sub.name?.toLowerCase());
+                          const subPlayer = (players || []).find(p => p && p.name && sub?.name && p.name.trim().toLowerCase() === String(sub.name).trim().toLowerCase());
                           const subInjury = subPlayer ? getPlayerInjuryStatus(subPlayer) : { isInjured: false };
 
                           return (
@@ -577,12 +578,15 @@ export const FootballPitch = ({
           <div className="space-y-2">
             {baseSlots.map((baseSlot, index) => {
               const assignedItem = startingXI[index] || { position: baseSlot.pos, playerName: "", substitutes: [] };
-              const starterPlayer = players.find(p => p.name.toLowerCase() === assignedItem.playerName?.toLowerCase());
+              const starterPlayer = (players || []).find(p => p && p.name && assignedItem.playerName && p.name.trim().toLowerCase() === assignedItem.playerName.trim().toLowerCase());
               const overall = starterPlayer ? starterPlayer.overall : (assignedItem.playerName ? 75 : "--");
 
               const positionSubs = (assignedItem.substitutes || []).map(subName => {
-                return players.find(p => p.name.toLowerCase() === subName.toLowerCase()) || { name: subName, overall: 75 };
-              });
+                if (!subName) return null;
+                return (players || []).find(p => p && p.name && p.name.trim().toLowerCase() === String(subName).trim().toLowerCase()) || { name: String(subName), overall: 75 };
+              }).filter(Boolean);
+
+              const positionLabel = baseSlot.pos || assignedItem.position || "POS";
 
               return (
                 <div

@@ -47,8 +47,20 @@ export const SeasonDashboardView = () => {
 
   if (!activeClub || !activeSeason) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center text-slate-400">
-        No se ha seleccionado ninguna temporada activa.
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 mx-auto">
+          <Calendar className="w-8 h-8 opacity-50" />
+        </div>
+        <h2 className="text-xl font-bold text-white font-outfit">Ninguna temporada activa seleccionada</h2>
+        <p className="text-slate-400 text-xs max-w-md mx-auto">
+          Selecciona una temporada desde el Hub de tu club o regresa a la lista de proyectos.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center space-x-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all cursor-pointer"
+        >
+          <span>Recargar / Ir a Selección</span>
+        </button>
       </div>
     );
   }

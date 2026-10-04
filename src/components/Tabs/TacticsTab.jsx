@@ -18,21 +18,47 @@ export const TacticsTab = () => {
   if (!activeSeason) return null;
 
   // Retrieve phase tactics or fallback
-  const ofensiveTactics = activeSeason.tacticsOfensive || activeSeason.tactics || {
-    formation: "4-2-3-1 (Estrecho)",
-    style: "Posesión",
-    width: 65,
-    depth: 70,
-    playersInBox: 6,
-    startingXI: []
+  const ofensiveFormation = activeSeason.tacticsOfensive?.formation || "4-2-3-1 (Estrecho)";
+  const ofensivePresetSlots = FORMATION_PRESETS[ofensiveFormation] || FORMATION_PRESETS["4-2-3-1 (Estrecho)"];
+  const rawOfensiveXI = activeSeason.tacticsOfensive?.startingXI || activeSeason.tactics?.startingXI || [];
+  const safeOfensiveXI = ofensivePresetSlots.map((baseSlot, idx) => {
+    const existing = rawOfensiveXI[idx] || {};
+    return {
+      ...existing,
+      position: existing.position || baseSlot.pos,
+      playerName: existing.playerName || "",
+      substitutes: existing.substitutes ? [...existing.substitutes] : []
+    };
+  });
+
+  const ofensiveTactics = {
+    formation: ofensiveFormation,
+    style: activeSeason.tacticsOfensive?.style || "Posesión",
+    width: activeSeason.tacticsOfensive?.width ?? 65,
+    depth: activeSeason.tacticsOfensive?.depth ?? 70,
+    playersInBox: activeSeason.tacticsOfensive?.playersInBox ?? 6,
+    startingXI: safeOfensiveXI
   };
 
-  const defensiveTactics = activeSeason.tacticsDefensive || activeSeason.tactics || {
-    formation: "4-4-2 (Plano)",
-    style: "Presión tras Pérdida",
-    width: 45,
-    depth: 40,
-    startingXI: []
+  const defensiveFormation = activeSeason.tacticsDefensive?.formation || "4-4-2 (Plano)";
+  const defensivePresetSlots = FORMATION_PRESETS[defensiveFormation] || FORMATION_PRESETS["4-4-2 (Plano)"];
+  const rawDefensiveXI = activeSeason.tacticsDefensive?.startingXI || activeSeason.tactics?.startingXI || [];
+  const safeDefensiveXI = defensivePresetSlots.map((baseSlot, idx) => {
+    const existing = rawDefensiveXI[idx] || {};
+    return {
+      ...existing,
+      position: existing.position || baseSlot.pos,
+      playerName: existing.playerName || "",
+      substitutes: existing.substitutes ? [...existing.substitutes] : []
+    };
+  });
+
+  const defensiveTactics = {
+    formation: defensiveFormation,
+    style: activeSeason.tacticsDefensive?.style || "Presión tras Pérdida",
+    width: activeSeason.tacticsDefensive?.width ?? 45,
+    depth: activeSeason.tacticsDefensive?.depth ?? 40,
+    startingXI: safeDefensiveXI
   };
 
   const isOfensive = activePhase === 'ofensive';
@@ -91,7 +117,7 @@ export const TacticsTab = () => {
     const currentSlot = newStartingXI[slotIndex] || { position: "DC", playerName: "", substitutes: [] };
     const oldStarterName = currentSlot.playerName;
 
-    const newSubs = (currentSlot.substitutes || []).filter(name => name.toLowerCase() !== subPlayerName.toLowerCase());
+    const newSubs = (currentSlot.substitutes || []).filter(name => name && subPlayerName && String(name).toLowerCase() !== String(subPlayerName).toLowerCase());
     if (oldStarterName) newSubs.push(oldStarterName);
 
     newStartingXI[slotIndex] = {
@@ -107,19 +133,22 @@ export const TacticsTab = () => {
   };
 
   const handleAssignStarter = (playerName) => {
-    if (selectedSlotIndex === null) return;
+    if (selectedSlotIndex === null || !selectedSlotData) return;
     const newStartingXI = [...(currentPhaseTactics.startingXI || [])];
-    while (newStartingXI.length < 11) {
-      newStartingXI.push({ position: "DC", playerName: "", substitutes: [] });
+    const activeSlots = FORMATION_PRESETS[currentPhaseTactics.formation] || FORMATION_PRESETS["4-2-3-1 (Estrecho)"];
+    
+    while (newStartingXI.length < activeSlots.length) {
+      const idx = newStartingXI.length;
+      newStartingXI.push({ position: activeSlots[idx]?.pos || "DC", playerName: "", substitutes: [] });
     }
 
-    const slotPos = selectedSlotData.slot.pos;
+    const slotPos = selectedSlotData.slot?.pos || newStartingXI[selectedSlotIndex]?.position || "DC";
     const existingSlot = newStartingXI[selectedSlotIndex] || { position: slotPos, playerName: "", substitutes: [] };
 
     newStartingXI[selectedSlotIndex] = {
       ...existingSlot,
       position: slotPos,
-      playerName: playerName
+      playerName: playerName || ""
     };
 
     updatePhaseTactics(activePhase, { startingXI: newStartingXI }, syncBothSquads);
@@ -132,20 +161,21 @@ export const TacticsTab = () => {
   };
 
   const handleToggleSubForPosition = (playerName) => {
-    if (selectedSlotIndex === null) return;
+    if (selectedSlotIndex === null || !selectedSlotData || !playerName) return;
     const newStartingXI = [...(currentPhaseTactics.startingXI || [])];
-    const slotPos = selectedSlotData.slot.pos;
+    const slotPos = selectedSlotData.slot?.pos || newStartingXI[selectedSlotIndex]?.position || "DC";
     const existingSlot = newStartingXI[selectedSlotIndex] || { position: slotPos, playerName: "", substitutes: [] };
 
     let currentSubs = [...(existingSlot.substitutes || [])];
-    if (currentSubs.includes(playerName)) {
-      currentSubs = currentSubs.filter(name => name !== playerName);
+    if (currentSubs.some(n => String(n).toLowerCase() === String(playerName).toLowerCase())) {
+      currentSubs = currentSubs.filter(name => String(name).toLowerCase() !== String(playerName).toLowerCase());
     } else {
       currentSubs.push(playerName);
     }
 
     newStartingXI[selectedSlotIndex] = {
       ...existingSlot,
+      position: slotPos,
       substitutes: currentSubs
     };
 
@@ -397,72 +427,84 @@ export const TacticsTab = () => {
                     <span>[ Dejar sin titular ]</span>
                   </div>
 
-                  {currentPlayers.map(p => (
-                    <div
-                      key={p.id}
-                      onClick={() => handleAssignStarter(p.name)}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                        selectedSlotData.assignedItem?.playerName === p.name
-                          ? 'bg-emerald-500/10 border-emerald-500 text-white'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="font-extrabold text-amber-400 bg-slate-900 px-2 py-1 rounded border border-slate-700">
-                          {p.overall}
-                        </span>
-                        <div>
-                          <p className="font-bold text-sm text-white">{p.name}</p>
-                          <p className="text-[10px] text-slate-400">Pos: {p.position}</p>
-                        </div>
-                      </div>
-
-                      {selectedSlotData.assignedItem?.playerName === p.name && (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      )}
+                  {(currentPlayers || []).length === 0 ? (
+                    <div className="p-4 bg-slate-950 rounded-xl text-center text-xs text-slate-500">
+                      No hay jugadores en la plantilla todavía. Ve a la pestaña **Plantilla** para añadir jugadores.
                     </div>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-slate-400 mb-2">
-                    Selecciona los jugadores **Suplentes** para el recuadro de esta posición ({selectedSlotData.slot.pos}):
-                  </p>
-
-                  {currentPlayers.map(p => {
-                    const isSub = (selectedSlotData.assignedItem?.substitutes || []).includes(p.name);
-                    const isStarter = selectedSlotData.assignedItem?.playerName === p.name;
-
-                    return (
+                  ) : (
+                    (currentPlayers || []).map(p => (
                       <div
                         key={p.id}
-                        onClick={() => !isStarter && handleToggleSubForPosition(p.name)}
-                        className={`p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
-                          isStarter ? 'opacity-40 cursor-not-allowed bg-slate-950 border-slate-900' :
-                          isSub ? 'bg-cyan-500/10 border-cyan-500 text-white cursor-pointer' :
-                          'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-200 cursor-pointer'
+                        onClick={() => handleAssignStarter(p.name)}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                          selectedSlotData.assignedItem?.playerName && p.name && selectedSlotData.assignedItem.playerName.toLowerCase() === p.name.toLowerCase()
+                            ? 'bg-emerald-500/10 border-emerald-500 text-white'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-200'
                         }`}
                       >
                         <div className="flex items-center space-x-3">
                           <span className="font-extrabold text-amber-400 bg-slate-900 px-2 py-1 rounded border border-slate-700">
-                            {p.overall}
+                            {p.overall || 75}
                           </span>
                           <div>
-                            <p className="font-bold text-sm text-white">{p.name}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {isStarter ? 'Titular de esta posición' : `Pos: ${p.position}`}
-                            </p>
+                            <p className="font-bold text-sm text-white">{p.name || 'Jugador'}</p>
+                            <p className="text-[10px] text-slate-400">Pos: {p.position || 'DC'}</p>
                           </div>
                         </div>
 
-                        {isSub && (
-                          <span className="text-cyan-400 font-bold text-[10px] bg-cyan-950 px-2 py-0.5 rounded border border-cyan-500/30">
-                            En recuadro suplentes
-                          </span>
+                        {selectedSlotData.assignedItem?.playerName && p.name && selectedSlotData.assignedItem.playerName.toLowerCase() === p.name.toLowerCase() && (
+                          <Check className="w-4 h-4 text-emerald-400" />
                         )}
                       </div>
-                    );
-                  })}
+                    ))
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-400 mb-2">
+                    Selecciona los jugadores **Suplentes** para el recuadro de esta posición ({selectedSlotData.slot?.pos || 'POS'}):
+                  </p>
+
+                  {(currentPlayers || []).length === 0 ? (
+                    <div className="p-4 bg-slate-950 rounded-xl text-center text-xs text-slate-500">
+                      No hay jugadores en la plantilla todavía. Ve a la pestaña **Plantilla** para añadir jugadores.
+                    </div>
+                  ) : (
+                    (currentPlayers || []).map(p => {
+                      const isSub = (selectedSlotData.assignedItem?.substitutes || []).some(n => p.name && String(n).toLowerCase() === p.name.toLowerCase());
+                      const isStarter = selectedSlotData.assignedItem?.playerName && p.name && selectedSlotData.assignedItem.playerName.toLowerCase() === p.name.toLowerCase();
+
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => !isStarter && handleToggleSubForPosition(p.name)}
+                          className={`p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
+                            isStarter ? 'opacity-40 cursor-not-allowed bg-slate-950 border-slate-900' :
+                            isSub ? 'bg-cyan-500/10 border-cyan-500 text-white cursor-pointer' :
+                            'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-200 cursor-pointer'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <span className="font-extrabold text-amber-400 bg-slate-900 px-2 py-1 rounded border border-slate-700">
+                              {p.overall || 75}
+                            </span>
+                            <div>
+                              <p className="font-bold text-sm text-white">{p.name || 'Jugador'}</p>
+                              <p className="text-[10px] text-slate-400">
+                                {isStarter ? 'Titular de esta posición' : `Pos: ${p.position || 'DC'}`}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isSub && (
+                            <span className="text-cyan-400 font-bold text-[10px] bg-cyan-950 px-2 py-0.5 rounded border border-cyan-500/30">
+                              En recuadro suplentes
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </>
               )}
             </div>

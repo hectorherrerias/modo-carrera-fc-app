@@ -15,7 +15,7 @@ export const ClubSelectionView = ({ onSelectClub }) => {
   const handleAddClub = (newClubData) => {
     const res = addClub(newClubData);
     if (res && res.clubId) {
-      onSelectClub(res.clubId);
+      onSelectClub(res.clubId, res.seasonId);
     }
   };
 
