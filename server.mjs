@@ -74,6 +74,29 @@ const userFile = (rawKey) => {
   return path.join(DATA_DIR, `${safe}.json`);
 };
 
+// How much real content a career has (used to refuse destructive overwrites)
+const COUNTED = ['clubs', 'seasons', 'players', 'matches', 'transfers', 'youthAcademy', 'shortlist', 'pressConferences', 'newsArticles'];
+const careerScore = (career) =>
+  career && typeof career === 'object'
+    ? COUNTED.reduce((sum, k) => sum + (Array.isArray(career[k]) ? career[k].length : 0), 0)
+    : 0;
+
+// The untouched demo data from src/mockData.js (clubs c1/c2, no players or matches)
+const isDemoTemplate = (career) => {
+  const ids = (career?.clubs || []).map((c) => c.id).sort().join(',');
+  return ids === 'c1,c2' && !(career.players || []).length && !(career.matches || []).length;
+};
+
+// Keep the previous version of every document in DATA_DIR/history (last 50 per user)
+const HISTORY_DIR = path.join(DATA_DIR, 'history');
+const snapshot = async (file, doc) => {
+  await fsp.mkdir(HISTORY_DIR, { recursive: true });
+  const base = path.basename(file, '.json');
+  await fsp.writeFile(path.join(HISTORY_DIR, `${base}-${Date.now()}.json`), JSON.stringify(doc), 'utf-8');
+  const old = (await fsp.readdir(HISTORY_DIR)).filter((f) => f.startsWith(`${base}-`)).sort();
+  for (const f of old.slice(0, Math.max(0, old.length - 50))) await fsp.unlink(path.join(HISTORY_DIR, f));
+};
+
 const readBody = (req) =>
   new Promise((resolve, reject) => {
     let size = 0;
@@ -120,14 +143,36 @@ const handleApi = async (req, res, url) => {
 
   if (req.method === 'POST' || req.method === 'PUT') {
     const body = await readBody(req);
+    let incoming;
     try {
-      JSON.parse(body);
+      incoming = JSON.parse(body);
     } catch {
       return send(req, res, 400, { error: 'Invalid JSON' }, cors);
     }
+
+    const existing = await fsp.readFile(file, 'utf-8').then(JSON.parse).catch(() => null);
+    const force = url.searchParams.get('force') === '1';
+
+    // Profile-only saves (login, Gemini key) arrive with careerData = null:
+    // keep the stored career instead of wiping it
+    if (existing?.careerData && !incoming.careerData) {
+      incoming.careerData = existing.careerData;
+    }
+
+    // Never let an emptier copy (e.g. the demo template from a new device)
+    // replace a richer one. Deliberate resets can pass ?force=1
+    const before = careerScore(existing?.careerData);
+    const after = careerScore(incoming.careerData);
+    if (!force && (isDemoTemplate(incoming.careerData) || (before > 0 && after < before * 0.5))) {
+      log('REJECTED overwrite', path.basename(file), `score ${before} -> ${after}`);
+      return send(req, res, 409, { error: 'Rejected: would replace richer data', stored: before, incoming: after }, cors);
+    }
+
+    if (existing) await snapshot(file, existing);
+
     // Atomic write: never leave a half-written file if the container stops
     const tmp = `${file}.${process.pid}.tmp`;
-    await fsp.writeFile(tmp, body, 'utf-8');
+    await fsp.writeFile(tmp, JSON.stringify(incoming), 'utf-8');
     await fsp.rename(tmp, file);
     return send(req, res, 200, { success: true, key: path.basename(file), updatedAt: Date.now() }, cors);
   }

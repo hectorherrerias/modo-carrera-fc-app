@@ -7,6 +7,13 @@ import { buildInjuryObject, findRecoveredPlayersForDate, parseDurationDaysFromSt
 
 const AppContext = createContext();
 
+// Amount of real content in a career, used to never replace richer data with an emptier copy
+const COUNTED_KEYS = [clubs, seasons, players, matches, transfers, youthAcademy, shortlist, pressConferences, newsArticles];
+const careerScore = (career) =>
+  career && typeof career === object
+    ? COUNTED_KEYS.reduce((sum, k) => sum + (Array.isArray(career[k]) ? career[k].length : 0), 0)
+    : 0;
+
 const DEFAULT_SEASON_NARRATIVE = "Llegamos con la máxima ilusión. El objetivo es competir en cada jornada, consolidar la solidez táctica del equipo y cumplir las expectativas de la directiva y de la afición.";
 
 export const DEFAULT_STARTING_XI_OFENSIVE = [
@@ -97,7 +104,11 @@ export const AppProvider = ({ children }) => {
       // 1. Try Cloud fetch
       try {
         const cloudResult = await fetchUserCloudData(currentUser.email);
-        if (isMounted && cloudResult && cloudResult.careerData && cloudResult.careerData.clubs?.length > 0) {
+        // Only take the cloud copy if it has at least as much content as this
+        // device; otherwise keep the local data (it gets uploaded right after)
+        const localSaved = (() => { try { return JSON.parse(localStorage.getItem(userStorageKey)); } catch (e) { return null; } })();
+        if (isMounted && cloudResult && cloudResult.careerData && cloudResult.careerData.clubs?.length > 0 &&
+            careerScore(cloudResult.careerData) >= careerScore(localSaved)) {
           const cloudData = cloudResult.careerData;
           // Ensure seasons have narrativeContext
           if (cloudData.seasons) {
