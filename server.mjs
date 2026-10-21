@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 
 const PORT = Number(process.env.PORT) || 80;
 const DIST_DIR = path.resolve(process.env.DIST_DIR || './dist');
@@ -180,6 +181,24 @@ const handleApi = async (req, res, url) => {
   return send(req, res, 405, { error: 'Method not allowed' }, cors);
 };
 
+// Device backups: raw copy of a browser's saved data, written once per distinct content.
+// Write-only on purpose (no GET), so nobody can read them back through the app.
+const BACKUP_DIR = path.join(DATA_DIR, 'device-backups');
+const handleDeviceBackup = async (req, res) => {
+  if (req.method !== 'POST') return send(req, res, 405, { error: 'Method not allowed' });
+  const body = await readBody(req);
+  let parsed;
+  try { parsed = JSON.parse(body); } catch { return send(req, res, 400, { error: 'Invalid JSON' }); }
+  const hash = crypto.createHash('sha1').update(JSON.stringify(parsed.storage || parsed)).digest('hex').slice(0, 12);
+  await fsp.mkdir(BACKUP_DIR, { recursive: true });
+  const seen = (await fsp.readdir(BACKUP_DIR)).some((f) => f.includes(hash));
+  if (!seen) {
+    await fsp.writeFile(path.join(BACKUP_DIR, `${Date.now()}-${hash}.json`), body, 'utf-8');
+    log('Device backup stored', hash, `${Math.round(body.length / 1024)} KB`);
+  }
+  return send(req, res, 200, { success: true });
+};
+
 // ---------------------------------------------------------------------------
 // Static files + SPA fallback
 // ---------------------------------------------------------------------------
@@ -218,6 +237,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   try {
     if (url.pathname === '/healthz') return send(req, res, 200, { status: 'ok' });
+    if (url.pathname === '/api/device-backup') return await handleDeviceBackup(req, res);
     if (url.pathname.startsWith('/api/cloud-db') || url.pathname.startsWith('/api/sync')) {
       const result = await handleApi(req, res, url);
       if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {

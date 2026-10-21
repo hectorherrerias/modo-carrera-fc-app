@@ -8,6 +8,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+      // Copia de seguridad del dispositivo: antes de que arranque la app, envía al
+      // servidor todo lo guardado en este navegador/app (solo se guarda, nunca se sirve)
+      (function () {
+        try {
+          var dump = {};
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf('career_tracker') === 0) dump[k] = localStorage.getItem(k);
+          }
+          if (!Object.keys(dump).length) return;
+          fetch('/api/device-backup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ origin: location.origin, ua: navigator.userAgent, standalone: !!navigator.standalone, at: Date.now(), storage: dump })
+          }).catch(function () {});
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
     <div id="root"></div>
