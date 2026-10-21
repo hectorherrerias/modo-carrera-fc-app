@@ -55,6 +55,9 @@ export const AppProvider = ({ children }) => {
   const [lastSyncedAt, setLastSyncedAt] = useState(Date.now());
   const syncTimeoutRef = useRef(null);
   const initialCloudLoadDoneRef = useRef(false);
+  // Storage key whose data is currently loaded in memory. Saving is only allowed
+  // for that key, so switching user never writes one user's data over another's
+  const loadedKeyRef = useRef(userStorageKey);
 
   const [data, setData] = useState(() => {
     const saved = localStorage.getItem(userStorageKey);
@@ -200,6 +203,7 @@ export const AppProvider = ({ children }) => {
         }
       }
 
+      loadedKeyRef.current = userStorageKey;
       initialCloudLoadDoneRef.current = true;
     };
 
@@ -213,6 +217,9 @@ export const AppProvider = ({ children }) => {
   // Save to LocalStorage & Debounced Auto-Sync to Cloud
   useEffect(() => {
     if (!data || !userStorageKey) return;
+    // Right after a login/logout, `data` still holds the previous user's career
+    // until loadUserInitialData finishes: never save it under the new key
+    if (loadedKeyRef.current !== userStorageKey) return;
 
     // Save immediately to localStorage
     localStorage.setItem(userStorageKey, JSON.stringify(data));
