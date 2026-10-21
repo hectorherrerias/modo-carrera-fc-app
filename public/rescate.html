@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rescate de datos - Modo Carrera</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0b1220; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p { color: #94a3b8; margin: 4px 0 16px; }
+  .card { background: #131c2e; border: 1px solid #23304a; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .key { font-family: ui-monospace, monospace; font-size: .8rem; color: #94a3b8; word-break: break-all; }
+  .stats { margin: 8px 0; line-height: 1.6; }
+  .clubs { color: #34d399; }
+  button { padding: 10px 14px; border: 0; border-radius: 8px; background: #10b981; color: #052e16; font-weight: 700; cursor: pointer; margin: 4px 6px 0 0; }
+  button.sec { background: #334155; color: #e2e8f0; }
+  .ok { color: #34d399; } .err { color: #f87171; }
+  input { padding: 9px; border-radius: 8px; border: 1px solid #334155; background: #0b1220; color: inherit; width: min(320px, 100%); }
+</style>
+</head>
+<body>
+<h1>🛟 Rescate de datos de Modo Carrera</h1>
+<p>Esta página busca todas las carreras guardadas en <b>este navegador</b> para la dirección <b id="origin"></b>. No borra nada.</p>
+<div class="card">
+  Recuperar en el usuario: <input id="email" value="hectorherrerias@gmail.com">
+</div>
+<div id="list"></div>
+<script>
+document.getElementById('origin').textContent = location.origin;
+const COUNTED = ['clubs', 'seasons', 'players', 'matches', 'transfers', 'youthAcademy', 'shortlist', 'pressConferences', 'newsArticles'];
+const LABELS = { clubs: 'clubes', seasons: 'temporadas', players: 'jugadores', matches: 'partidos', transfers: 'fichajes', youthAcademy: 'cantera', shortlist: 'seguimiento', pressConferences: 'ruedas de prensa', newsArticles: 'noticias' };
+const score = d => COUNTED.reduce((s, k) => s + (Array.isArray(d && d[k]) ? d[k].length : 0), 0);
+const list = document.getElementById('list');
+const found = [];
+
+for (let i = 0; i < localStorage.length; i++) {
+  const key = localStorage.key(i);
+  if (!key.startsWith('career_tracker_data')) continue;
+  let data;
+  try { data = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
+  if (!data || typeof data !== 'object') continue;
+  found.push({ key, data, size: localStorage.getItem(key).length });
+}
+
+let users = [];
+try { users = JSON.parse(localStorage.getItem('career_tracker_users_v30') || '[]'); } catch (e) {}
+
+if (!found.length) {
+  list.innerHTML = '<div class="card err">No hay ninguna carrera guardada en este navegador para esta dirección. Prueba a abrir esta misma página con otra dirección (por ejemplo http://192.168.1.100:3002/rescate.html).</div>';
+}
+
+found.sort((a, b) => score(b.data) - score(a.data)).forEach((f, idx) => {
+  const d = f.data;
+  const userId = f.key.replace('career_tracker_data_', '');
+  const owner = users.find(u => u.id === userId);
+  const demo = (d.clubs || []).map(c => c.id).sort().join(',') === 'c1,c2' && !(d.players || []).length;
+  const stats = COUNTED.filter(k => Array.isArray(d[k]) && d[k].length).map(k => `${d[k].length} ${LABELS[k]}`).join(' · ') || 'vacía';
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.innerHTML = `
+    <div class="key">${f.key}${owner ? ' — ' + owner.email : ''} (${Math.round(f.size / 1024)} KB)</div>
+    <div class="stats"><b>${stats}</b>${demo ? ' <span class="err">(plantilla de ejemplo)</span>' : ''}<br>
+      <span class="clubs">${(d.clubs || []).map(c => c.name).join(', ')}</span></div>
+    <button data-i="${idx}" data-act="send">Recuperar en este usuario</button>
+    <button class="sec" data-i="${idx}" data-act="dl">Descargar copia</button>
+    <div class="msg"></div>`;
+  list.appendChild(div);
+});
+
+list.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button'); if (!btn) return;
+  const f = found.sort((a, b) => score(b.data) - score(a.data))[+btn.dataset.i];
+  const msg = btn.parentElement.querySelector('.msg');
+  if (btn.dataset.act === 'dl') {
+    const blob = new Blob([JSON.stringify(f.data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.key + '.json'; a.click();
+    return;
+  }
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  if (!confirm(`¿Guardar esta carrera (${score(f.data)} elementos) en el servidor para ${email}?`)) return;
+  const payload = { userId: 'user_' + email.replace(/[^a-z0-9]/gi, '_'), email, name: email.split('@')[0], isGoogle: email.includes('@gmail.com'), careerData: f.data, updatedAt: Date.now() };
+  try {
+    // Same origin: goes to this app's own server. Through another origin, send to the real app.
+    const base = location.port === '3002' ? '' : `${location.protocol}//${location.hostname}:3002`;
+    const res = await fetch(`${base}/api/cloud-db?email=${encodeURIComponent(email)}&force=1`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    localStorage.setItem('career_tracker_data_' + payload.userId, JSON.stringify(f.data));
+    msg.innerHTML = '<p class="ok">✅ Recuperada. Abre la app e inicia sesión con ' + email + '.</p>';
+  } catch (e) {
+    msg.innerHTML = '<p class="err">❌ No se pudo guardar: ' + e.message + '. Usa "Descargar copia" y avísame.</p>';
+  }
+});
+</script>
+</body>
+</html>
