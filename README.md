@@ -6,7 +6,7 @@ Aplicación web interactiva y completa para la gestión y seguimiento de carrera
 
 ## 🚀 Despliegue y Ejecución con Docker (Recomendado)
 
-La aplicación incluye soporte completo para Docker mediante una compilación multi-stage optimizada y un servidor web Nginx de alto rendimiento.
+La aplicación incluye soporte completo para Docker mediante una compilación multi-stage optimizada y un servidor Node ligero que sirve la web y la API de sincronización.
 
 ### Opción 1: Usando Docker Compose
 
@@ -16,7 +16,7 @@ La aplicación incluye soporte completo para Docker mediante una compilación mu
    ```
 
 2. **Abrir en el navegador:**
-   Accede a [http://localhost:3000](http://localhost:3000)
+   Accede a [http://localhost:3002](http://localhost:3002)
 
 3. **Detener el contenedor:**
    ```bash
@@ -34,7 +34,7 @@ La aplicación incluye soporte completo para Docker mediante una compilación mu
 
 2. **Ejecutar el contenedor:**
    ```bash
-   docker run -d -p 3000:80 --name modo-carrera-fc-app modo-carrera-fc-app
+   docker run -d -p 3002:80 -v $(pwd)/data:/app/data --name modo-carrera-fc-app modo-carrera-fc-app
    ```
 
 3. **Detener y eliminar el contenedor:**
@@ -43,6 +43,13 @@ La aplicación incluye soporte completo para Docker mediante una compilación mu
    ```
 
 ---
+
+## ☁️ Sincronización entre Dispositivos en Docker
+
+La imagen Docker usa un pequeño servidor Node sin dependencias (`server.mjs`) que sirve la web y la API `/api/cloud-db` (la misma que el plugin de Vite en desarrollo y la función de Vercel). Los datos de cada usuario se guardan como JSON en `./data` (volumen), de modo que la carrera se sincroniza entre el iPhone, el Mac y cualquier navegador.
+
+- Healthcheck: `GET /healthz`
+- Copia de seguridad: basta con copiar la carpeta `data/`.
 
 ## 💻 Desarrollo Local (Sin Docker)
 
@@ -74,6 +81,6 @@ Si deseas ejecutar o modificar el proyecto localmente con Node.js:
 ## 🛠️ Tecnologías Utilizadas
 
 - **Frontend:** React 18, Vite 6, Tailwind CSS, Lucide Icons.
-- **Servidor Web Producción:** Nginx Alpine (Gzip, Headers de Seguridad, Caché de estáticos y soporte SPA).
+- **Servidor Web Producción:** Node 20 Alpine con `server.mjs` (Gzip, Headers de Seguridad, Caché de estáticos, soporte SPA y API de sincronización).
 - **Contenedor:** Docker / Docker Compose (Multi-stage build con Node.js 20).
 - **Almacenamiento:** LocalStorage en el navegador y sincronización en la nube opcional.

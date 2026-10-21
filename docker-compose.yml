@@ -1,13 +1,20 @@
-version: '3.8'
-
 services:
   modo-carrera-fc:
     build:
       context: .
       dockerfile: Dockerfile
+    image: modo-carrera-fc:latest
     container_name: modo-carrera-fc-app
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${HOST_PORT:-3002}:80"
     environment:
       - NODE_ENV=production
+    volumes:
+      # Datos de carrera sincronizados entre dispositivos (un JSON por usuario)
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

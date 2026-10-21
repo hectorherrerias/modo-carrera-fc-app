@@ -18,18 +18,33 @@ COPY . .
 RUN npm run build
 
 # ==========================================
-# Etapa 2: Servidor Web de Producción (Nginx)
+# Etapa 2: Servidor de Producción (Node, sin dependencias)
+# Sirve la web y la API /api/cloud-db de sincronización entre dispositivos
 # ==========================================
-FROM nginx:alpine
+FROM node:20-alpine
 
-# Copiar configuración personalizada de Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copiar los archivos compilados desde la etapa de construcción
-COPY --from=builder /app/dist /usr/share/nginx/html
+ENV NODE_ENV=production \
+    PORT=80 \
+    DIST_DIR=/app/dist \
+    DATA_DIR=/app/data
 
-# Exponer el puerto estándar HTTP
+# Copiar los archivos compilados y el servidor
+COPY --from=builder /app/dist ./dist
+COPY server.mjs ./server.mjs
+
+# Directorio persistente para los datos sincronizados (montado como volumen)
+RUN mkdir -p /app/data && chown -R node:node /app/data
+
+# Puerto 80 sin root
+RUN apk add --no-cache libcap && setcap 'cap_net_bind_service=+ep' /usr/local/bin/node && apk del libcap
+
+USER node
+
 EXPOSE 80
 
-# Iniciar Nginx en primer plano
-CMD ["nginx", "-g", "daemon off;"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost/healthz || exit 1
+
+CMD ["node", "server.mjs"]

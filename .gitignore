@@ -31,3 +31,6 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+
+# Datos sincronizados en Docker
+data/
