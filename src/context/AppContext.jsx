@@ -8,9 +8,9 @@ import { buildInjuryObject, findRecoveredPlayersForDate, parseDurationDaysFromSt
 const AppContext = createContext();
 
 // Amount of real content in a career, used to never replace richer data with an emptier copy
-const COUNTED_KEYS = [clubs, seasons, players, matches, transfers, youthAcademy, shortlist, pressConferences, newsArticles];
+const COUNTED_KEYS = ['clubs', 'seasons', 'players', 'matches', 'transfers', 'youthAcademy', 'shortlist', 'pressConferences', 'newsArticles'];
 const careerScore = (career) =>
-  career && typeof career === object
+  career && typeof career === 'object'
     ? COUNTED_KEYS.reduce((sum, k) => sum + (Array.isArray(career[k]) ? career[k].length : 0), 0)
     : 0;
 
