@@ -29,6 +29,8 @@ export const SeasonDashboardView = () => {
     clubSeasons, 
     recordMatchResult, 
     computedWinRate, 
+    hasWinRate,
+    clubTotalMatches,
     currentMatches,
     recoveredPlayersQueue,
     dismissRecoveredModal
@@ -256,10 +258,10 @@ export const SeasonDashboardView = () => {
               <span>% Victorias (Global)</span>
             </span>
             <span className="text-lg sm:text-xl font-black text-emerald-400 font-outfit mt-0.5">
-              {computedWinRate}%
+              {hasWinRate ? `${computedWinRate}%` : '—'}
             </span>
             <span className="text-[9px] text-slate-500">
-              {seasonTotalMatches} Partidos Totales
+              {hasWinRate ? `${clubTotalMatches} partidos con el club` : 'Aún sin partidos'}
             </span>
           </div>
 

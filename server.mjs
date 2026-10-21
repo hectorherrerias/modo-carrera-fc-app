@@ -88,14 +88,69 @@ const isDemoTemplate = (career) => {
   return ids === 'c1,c2' && !(career.players || []).length && !(career.matches || []).length;
 };
 
-// Keep the previous version of every document in DATA_DIR/history (last 50 per user)
+// Previous versions of every document live in DATA_DIR/history as <user>-<timestamp>.json.
+// At most one snapshot every 10 minutes per user (the app saves on every edit);
+// retention: the 30 most recent, plus the last one of each day for 60 days.
 const HISTORY_DIR = path.join(DATA_DIR, 'history');
+const SNAPSHOT_EVERY_MS = 10 * 60 * 1000;
+const KEEP_RECENT = 30;
+const KEEP_DAYS = 60;
+
+const historyFiles = async (base) =>
+  (await fsp.readdir(HISTORY_DIR).catch(() => []))
+    .filter((f) => f.startsWith(`${base}-`) && f.endsWith('.json'))
+    .sort();
+
+const tsOf = (fileName) => Number(fileName.slice(fileName.lastIndexOf('-') + 1, -5));
+
 const snapshot = async (file, doc) => {
   await fsp.mkdir(HISTORY_DIR, { recursive: true });
   const base = path.basename(file, '.json');
+  const files = await historyFiles(base);
+  const newest = files.length ? tsOf(files[files.length - 1]) : 0;
+  if (Date.now() - newest < SNAPSHOT_EVERY_MS) return;
+
   await fsp.writeFile(path.join(HISTORY_DIR, `${base}-${Date.now()}.json`), JSON.stringify(doc), 'utf-8');
-  const old = (await fsp.readdir(HISTORY_DIR)).filter((f) => f.startsWith(`${base}-`)).sort();
-  for (const f of old.slice(0, Math.max(0, old.length - 50))) await fsp.unlink(path.join(HISTORY_DIR, f));
+
+  const all = await historyFiles(base);
+  const keep = new Set(all.slice(-KEEP_RECENT));
+  const perDay = new Map();
+  const limit = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000;
+  for (const f of all) {
+    const ts = tsOf(f);
+    if (ts >= limit) perDay.set(new Date(ts).toISOString().slice(0, 10), f); // last of each day wins
+  }
+  for (const f of perDay.values()) keep.add(f);
+  for (const f of all) if (!keep.has(f)) await fsp.unlink(path.join(HISTORY_DIR, f));
+};
+
+// GET /api/cloud-db/history?email=x          -> list of saved versions (newest first)
+// GET /api/cloud-db/history?email=x&id=<ts>  -> one version
+const handleHistory = async (req, res, url) => {
+  if (req.method !== 'GET') return send(req, res, 405, { error: 'Method not allowed' });
+  const base = path.basename(userFile(url.searchParams.get('email')), '.json');
+  const id = url.searchParams.get('id');
+  const files = await historyFiles(base);
+
+  if (id) {
+    const f = files.find((x) => String(tsOf(x)) === id);
+    if (!f) return send(req, res, 404, { error: 'Version not found' });
+    const content = await fsp.readFile(path.join(HISTORY_DIR, f), 'utf-8');
+    return send(req, res, 200, content, { 'Cache-Control': 'no-store' });
+  }
+
+  const versions = [];
+  for (const f of files.slice().reverse()) {
+    try {
+      const doc = JSON.parse(await fsp.readFile(path.join(HISTORY_DIR, f), 'utf-8'));
+      const career = doc.careerData || {};
+      const counts = Object.fromEntries(COUNTED.map((k) => [k, Array.isArray(career[k]) ? career[k].length : 0]));
+      versions.push({ id: String(tsOf(f)), savedAt: tsOf(f), counts, clubs: (career.clubs || []).map((c) => c.name) });
+    } catch {
+      // skip unreadable snapshots
+    }
+  }
+  return send(req, res, 200, { versions }, { 'Cache-Control': 'no-store' });
 };
 
 const readBody = (req) =>
@@ -238,6 +293,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/healthz') return send(req, res, 200, { status: 'ok' });
     if (url.pathname === '/api/device-backup') return await handleDeviceBackup(req, res);
+    if (url.pathname === '/api/cloud-db/history') return await handleHistory(req, res, url);
     if (url.pathname.startsWith('/api/cloud-db') || url.pathname.startsWith('/api/sync')) {
       const result = await handleApi(req, res, url);
       if (req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS') {

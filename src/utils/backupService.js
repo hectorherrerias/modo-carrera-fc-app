@@ -20,6 +20,19 @@ export const LIST_LABELS = {
   newsArticles: 'noticias'
 };
 
+const SINGULAR = {
+  clubs: 'club',
+  seasons: 'temporada',
+  players: 'jugador',
+  matches: 'partido',
+  transfers: 'fichaje',
+  youthAcademy: 'cantera',
+  shortlist: 'seguimiento',
+  pressConferences: 'rueda de prensa',
+  newsArticles: 'noticia'
+};
+const label = (key, n) => `${n} ${n === 1 ? SINGULAR[key] : LIST_LABELS[key]}`;
+
 const DEFAULT_SEASON_NARRATIVE = "Llegamos con la máxima ilusión. El objetivo es competir en cada jornada, consolidar la solidez táctica del equipo y cumplir las expectativas de la directiva y de la afición.";
 
 /** Total number of items in a career (used to compare copies) */
@@ -83,8 +96,30 @@ export const normalizeCareer = (career) => {
 export const summarizeCareer = (career) => {
   const parts = CAREER_LISTS
     .filter(k => Array.isArray(career?.[k]) && career[k].length)
-    .map(k => `${career[k].length} ${LIST_LABELS[k]}`);
+    .map(k => label(k, career[k].length));
   return parts.length ? parts.join(' · ') : 'vacía';
+};
+
+/** Same summary from the { clubs: n, players: n, ... } counts the server returns */
+export const summarizeCounts = (counts = {}) => {
+  const parts = CAREER_LISTS.filter(k => counts[k]).map(k => label(k, counts[k]));
+  return parts.length ? parts.join(' · ') : 'vacía';
+};
+
+/** Versions of this user's career saved on the server (newest first) */
+export const fetchServerVersions = async (email) => {
+  const res = await fetch(`/api/cloud-db/history?email=${encodeURIComponent(email)}`, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error('No se pudo consultar el historial del servidor.');
+  return (await res.json()).versions || [];
+};
+
+/** One saved version, already normalised */
+export const fetchServerVersion = async (email, id) => {
+  const res = await fetch(`/api/cloud-db/history?email=${encodeURIComponent(email)}&id=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error('No se pudo descargar esa versión.');
+  const career = extractCareer(await res.json());
+  if (!career) throw new Error('Esa versión no contiene una carrera.');
+  return normalizeCareer(career);
 };
 
 /** Reads a File chosen by the user and returns a normalised career or throws a readable error */

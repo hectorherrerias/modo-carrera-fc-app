@@ -127,3 +127,39 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Safe areas: with the app installed on the iPhone/iPad home screen the page runs
+   full screen (viewport-fit=cover), under the status bar and the home indicator */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Visible keyboard focus for buttons and links (mouse clicks are unaffected) */
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--accent-app);
+  outline-offset: 2px;
+}
+
+/* Respect "reduce motion" in iOS/macOS accessibility settings */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Number fields use the app's own -/+ buttons: hide browser spinners that cover the digits */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

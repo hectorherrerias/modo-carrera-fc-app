@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { clubRecord, formatWinRate } from '../utils/recordHelper';
 import { 
   Trophy, Calendar, Plus, Shield, ArrowRight, DollarSign, 
   Activity, Award, Edit3, Landmark, Sparkles, Crown, Star 
@@ -11,6 +12,7 @@ import { ClubLogo } from '../components/ClubLogo';
 
 export const ClubHubView = ({ onSelectSeason, onBackToClubs }) => {
   const { activeClub, clubSeasons, addSeason, updateSeason, deleteSeason, updateClub, setActiveSeasonId } = useApp();
+  const record = clubRecord(clubSeasons, activeClub?.id);
   const [isSeasonModalOpen, setIsSeasonModalOpen] = useState(false);
   const [isEditClubModalOpen, setIsEditClubModalOpen] = useState(false);
   const [editingSeason, setEditingSeason] = useState(null);
@@ -148,7 +150,7 @@ export const ClubHubView = ({ onSelectSeason, onBackToClubs }) => {
                 <Activity className="w-3.5 h-3.5 text-emerald-400" />
                 <span>% Victorias</span>
               </p>
-              <p className="text-xl font-black text-emerald-400 mt-0.5">{activeClub.globalWinRate}%</p>
+              <p className="text-xl font-black text-emerald-400 mt-0.5">{formatWinRate(record.winRate)}</p>
             </div>
 
             <div className="col-span-2 sm:col-span-1 bg-slate-950/80 border border-slate-800/80 rounded-2xl px-4 py-3 text-center">

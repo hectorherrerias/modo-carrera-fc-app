@@ -418,7 +418,7 @@ export const TacticsTab = () => {
             <div className="p-4 overflow-y-auto space-y-2 flex-1">
               {!isManagingSubstitutes ? (
                 <>
-                  <p className="text-xs text-slate-400 mb-2">Selecciona el jugador **Titular** de la posición:</p>
+                  <p className="text-xs text-slate-400 mb-2">Selecciona el jugador <strong className="font-bold text-slate-200">Titular</strong> de la posición:</p>
 
                   <div
                     onClick={() => handleAssignStarter("")}
@@ -429,7 +429,7 @@ export const TacticsTab = () => {
 
                   {(currentPlayers || []).length === 0 ? (
                     <div className="p-4 bg-slate-950 rounded-xl text-center text-xs text-slate-500">
-                      No hay jugadores en la plantilla todavía. Ve a la pestaña **Plantilla** para añadir jugadores.
+                      No hay jugadores en la plantilla todavía. Ve a la pestaña <strong className="font-bold text-slate-200">Plantilla</strong> para añadir jugadores.
                     </div>
                   ) : (
                     (currentPlayers || []).map(p => (
@@ -462,12 +462,12 @@ export const TacticsTab = () => {
               ) : (
                 <>
                   <p className="text-xs text-slate-400 mb-2">
-                    Selecciona los jugadores **Suplentes** para el recuadro de esta posición ({selectedSlotData.slot?.pos || 'POS'}):
+                    Selecciona los jugadores <strong className="font-bold text-slate-200">Suplentes</strong> para el recuadro de esta posición ({selectedSlotData.slot?.pos || 'POS'}):
                   </p>
 
                   {(currentPlayers || []).length === 0 ? (
                     <div className="p-4 bg-slate-950 rounded-xl text-center text-xs text-slate-500">
-                      No hay jugadores en la plantilla todavía. Ve a la pestaña **Plantilla** para añadir jugadores.
+                      No hay jugadores en la plantilla todavía. Ve a la pestaña <strong className="font-bold text-slate-200">Plantilla</strong> para añadir jugadores.
                     </div>
                   ) : (
                     (currentPlayers || []).map(p => {

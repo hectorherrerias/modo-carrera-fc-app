@@ -572,7 +572,7 @@ export const FootballPitch = ({
         /* VIEW MODE B: 📋 SPACIOUS MOBILE POSITION LIST VIEW */
         <div className="space-y-3 pt-2">
           <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 text-xs text-slate-400">
-            Toca cualquier posición para elegir **Titular** y gestionar el recuadro de **Suplentes**:
+            Toca cualquier posición para elegir <strong className="font-bold text-slate-200">Titular</strong> y gestionar el recuadro de <strong className="font-bold text-slate-200">Suplentes</strong>:
           </div>
 
           <div className="space-y-2">
@@ -648,7 +648,7 @@ export const FootballPitch = ({
       <div className="mt-3 flex flex-col sm:flex-row justify-between items-center text-[11px] text-slate-400 px-1 gap-1">
         <span className="flex items-center space-x-1">
           <Move className="w-3.5 h-3.5 text-amber-400" />
-          <span>Toca cualquier posición para asignar **Titulares** o **Suplentes** holgadamente</span>
+          <span>Toca cualquier posición para asignar <strong className="font-bold text-slate-200">Titulares</strong> o <strong className="font-bold text-slate-200">Suplentes</strong> holgadamente</span>
         </span>
       </div>
 

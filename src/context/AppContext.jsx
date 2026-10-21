@@ -394,7 +394,9 @@ export const AppProvider = ({ children }) => {
   const clubTotalMatches = clubTotalWins + clubTotalDraws + clubTotalLosses;
   const computedWinRate = clubTotalMatches > 0 
     ? Number(((clubTotalWins / clubTotalMatches) * 100).toFixed(1)) 
-    : (activeClub?.globalWinRate || 50.0);
+    : 0;
+  // Only meaningful when at least one match was played (the UI shows "—" otherwise)
+  const hasWinRate = clubTotalMatches > 0;
 
   // Actions
   const updateSeasonNarrative = (narrativeText) => {
@@ -1561,6 +1563,7 @@ export const AppProvider = ({ children }) => {
       clubTotalDraws,
       clubTotalLosses,
       clubTotalMatches,
+      hasWinRate,
       updateSeasonNarrative,
       recordMatchResult,
       selectClub,

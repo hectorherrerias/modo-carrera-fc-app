@@ -273,7 +273,7 @@ export const MatchesCalendarTab = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 text-xs space-y-3">
             <Calendar className="w-8 h-8 text-slate-600 mx-auto" />
             <p className="font-bold text-slate-300 text-sm">No hay partidos registrados con los filtros actuales.</p>
-            <p>Pulsa en **Registrar Nuevo Partido** para añadir el resultado y sumar los minutos a tu plantilla.</p>
+            <p>Pulsa en <strong className="font-bold text-slate-200">Registrar Nuevo Partido</strong> para añadir el resultado y sumar los minutos a tu plantilla.</p>
           </div>
         ) : (
           filteredMatches.map(match => {

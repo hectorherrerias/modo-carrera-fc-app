@@ -481,9 +481,9 @@ export const SquadStatsTab = () => {
                                   type="button"
                                   onClick={() => handleQuickOvrChange(player.id, -1)}
                                   title="Reducir media (-1)"
-                                  className="text-slate-500 hover:text-rose-400 p-0.5 transition-colors cursor-pointer"
+                                  className="text-slate-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
                                 >
-                                  <Minus className="w-2.5 h-2.5" />
+                                  <Minus className="w-3 h-3" />
                                 </button>
 
                                 <input
@@ -492,16 +492,17 @@ export const SquadStatsTab = () => {
                                   max="99"
                                   value={currOvr}
                                   onChange={(e) => handleDirectOvrChange(player.id, e.target.value)}
-                                  className="w-7 text-center bg-transparent font-black text-amber-400 text-xs focus:outline-none focus:text-white"
+                                  inputMode="numeric"
+                                  className="w-8 text-center bg-transparent font-black text-amber-400 text-xs focus:outline-none focus:text-white"
                                 />
 
                                 <button
                                   type="button"
                                   onClick={() => handleQuickOvrChange(player.id, 1)}
                                   title="Aumentar media (+1)"
-                                  className="text-slate-500 hover:text-emerald-400 p-0.5 transition-colors cursor-pointer"
+                                  className="text-slate-500 hover:text-emerald-400 p-1 transition-colors cursor-pointer"
                                 >
-                                  <Plus className="w-2.5 h-2.5" />
+                                  <Plus className="w-3 h-3" />
                                 </button>
                               </div>
 

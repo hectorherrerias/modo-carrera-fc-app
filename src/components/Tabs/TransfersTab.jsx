@@ -160,7 +160,7 @@ export const TransfersTab = () => {
               <div className="col-span-full bg-slate-900 border border-slate-800 rounded-3xl p-10 text-center text-slate-500 text-xs space-y-2">
                 <ArrowLeftRight className="w-7 h-7 text-slate-600 mx-auto" />
                 <p className="font-bold text-slate-300">No hay operaciones registradas en este apartado todavía.</p>
-                <p>Pulsa en **Registrar Operación** para añadir fichajes, ventas o cesiones por voz o teclado.</p>
+                <p>Pulsa en <strong className="font-bold text-slate-200">Registrar Operación</strong> para añadir fichajes, ventas o cesiones por voz o teclado.</p>
               </div>
             ) : (
               filteredTransfers.map((item) => {
@@ -289,7 +289,7 @@ export const TransfersTab = () => {
                       <td colSpan="7" className="py-10 text-center text-slate-500 text-xs">
                         <BookmarkCheck className="w-7 h-7 text-slate-600 mx-auto mb-2" />
                         <p className="font-bold text-slate-300">No hay jugadores en tu lista de seguimiento todavía.</p>
-                        <p className="mt-1">Haz clic en **Añadir a la Lista de Seguimiento** para registrar objetivos de mercado.</p>
+                        <p className="mt-1">Haz clic en <strong className="font-bold text-slate-200">Añadir a la Lista de Seguimiento</strong> para registrar objetivos de mercado.</p>
                       </td>
                     </tr>
                   ) : (

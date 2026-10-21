@@ -78,5 +78,17 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Libraries change rarely: keeping them in their own files lets the
+        // iPad/iPhone keep them cached when only the app code is updated
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          icons: ['lucide-react']
+        }
+      }
+    }
   }
 });

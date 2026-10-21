@@ -81,7 +81,7 @@ export const PressNewsTab = () => {
             </div>
             <h3 className="text-2xl font-black text-white font-outfit mt-1">Prensa y Portadas de Periódicos</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Las portadas de MARCA, Diario AS y El Chiringuito se generan **automáticamente** tras cada partido según el resultado, goleadores y MVPs, y tras tus ruedas de prensa.
+              Las portadas de MARCA, Diario AS y El Chiringuito se generan <strong className="font-bold text-slate-200">automáticamente</strong> tras cada partido según el resultado, goleadores y MVPs, y tras tus ruedas de prensa.
             </p>
           </div>
         </div>
@@ -162,7 +162,7 @@ export const PressNewsTab = () => {
           <div className="col-span-full bg-slate-900 border border-slate-800 rounded-3xl p-10 text-center text-slate-500 text-xs space-y-2">
             <Sparkles className="w-6 h-6 text-amber-400 mx-auto" />
             <p className="font-bold text-slate-300">No hay noticias en esta sección todavía.</p>
-            <p>Ve a la pestaña 🎙️ **Ruedas de Prensa**, responde a las preguntas de los periodistas y la IA generará automáticamente las portadas de los periódicos aquí.</p>
+            <p>Ve a la pestaña 🎙️ <strong className="font-bold text-slate-200">Ruedas de Prensa</strong>, responde a las preguntas de los periodistas y la IA generará automáticamente las portadas de los periódicos aquí.</p>
           </div>
         ) : (
           filteredNews.map((news) => {

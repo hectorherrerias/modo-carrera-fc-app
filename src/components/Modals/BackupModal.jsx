@@ -1,9 +1,15 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Download, Upload, ShieldCheck, AlertTriangle, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
+import { X, Download, Upload, ShieldCheck, AlertTriangle, CheckCircle2, Loader2, Trash2, History } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { readBackupFile, downloadCareer, summarizeCareer, isDemoCareer, careerScore } from '../../utils/backupService';
+import {
+  readBackupFile, downloadCareer, summarizeCareer, summarizeCounts, isDemoCareer, careerScore,
+  fetchServerVersions, fetchServerVersion
+} from '../../utils/backupService';
+
+const formatDate = (ts) =>
+  new Date(ts).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export const BackupModal = ({ isOpen, onClose, onAfterReset }) => {
   const { data, importCareerData, resetToDefaultData } = useApp();
@@ -13,8 +19,36 @@ export const BackupModal = ({ isOpen, onClose, onAfterReset }) => {
   const [preview, setPreview] = useState(null);   // { career, fileName }
   const [status, setStatus] = useState(null);     // { type: 'ok' | 'error' | 'busy', text }
   const [resetConfirm, setResetConfirm] = useState('');
+  const [versions, setVersions] = useState(null); // null = loading
+
+  useEffect(() => {
+    if (!isOpen || !currentUser?.email) return;
+    let alive = true;
+    setVersions(null);
+    fetchServerVersions(currentUser.email)
+      .then(v => alive && setVersions(v))
+      .catch(() => alive && setVersions([]));
+    return () => { alive = false; };
+  }, [isOpen, currentUser?.email]);
+
+  // The preview sits above the versions list: bring it into view when it appears
+  const previewRef = useRef(null);
+  useEffect(() => {
+    if (preview) previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [preview]);
 
   if (!isOpen) return null;
+
+  const handleVersion = async (version) => {
+    setStatus({ type: 'busy', text: 'Descargando esa versión…' });
+    try {
+      const career = await fetchServerVersion(currentUser.email, version.id);
+      setPreview({ career, fileName: `Versión del ${formatDate(version.savedAt)}` });
+      setStatus(null);
+    } catch (err) {
+      setStatus({ type: 'error', text: err.message });
+    }
+  };
 
   const close = () => {
     setPreview(null);
@@ -107,7 +141,7 @@ export const BackupModal = ({ isOpen, onClose, onAfterReset }) => {
             </button>
 
             {preview && (
-              <div className="border border-amber-500/40 bg-amber-500/5 rounded-2xl p-4 space-y-3">
+              <div ref={previewRef} className="border border-amber-500/40 bg-amber-500/5 rounded-2xl p-4 space-y-3">
                 <div>
                   <p className="text-xs text-slate-400 truncate">{preview.fileName}</p>
                   <p className="text-sm text-white font-semibold mt-1">{summarizeCareer(preview.career)}</p>
@@ -155,6 +189,40 @@ export const BackupModal = ({ isOpen, onClose, onAfterReset }) => {
                 {status.type === 'busy' && <Loader2 className="w-4 h-4 mt-0.5 shrink-0 animate-spin" />}
                 <span>{status.text}</span>
               </div>
+            )}
+          </div>
+
+          {/* Server versions */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-white flex items-center space-x-1.5">
+              <History className="w-4 h-4 text-cyan-400" />
+              <span>Versiones guardadas en el servidor</span>
+            </h3>
+            <p className="text-xs text-slate-400">El servidor guarda una versión de tu carrera cada 10 minutos de uso y una por día durante 60 días.</p>
+            {versions === null && (
+              <p className="text-xs text-slate-500 flex items-center space-x-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Cargando…</span></p>
+            )}
+            {versions && versions.length === 0 && (
+              <p className="text-xs text-slate-500">Todavía no hay versiones anteriores.</p>
+            )}
+            {versions && versions.length > 0 && (
+              <ul className="max-h-48 overflow-y-auto divide-y divide-slate-800 border border-slate-800 rounded-2xl">
+                {versions.map(v => (
+                  <li key={v.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-200">{formatDate(v.savedAt)}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{summarizeCounts(v.counts)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleVersion(v)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 text-xs font-bold"
+                    >
+                      Ver
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

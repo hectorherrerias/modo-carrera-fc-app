@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { clubRecord, formatWinRate } from '../utils/recordHelper';
 import { Shield, Plus, Trophy, Percent, User, ArrowRight, Sparkles } from 'lucide-react';
 import { AddClubModal } from '../components/Modals/AddClubModal';
 import { ClubLogo } from '../components/ClubLogo';
@@ -81,7 +82,7 @@ export const ClubSelectionView = ({ onSelectClub }) => {
                       <Percent className="w-3 h-3 text-emerald-400" />
                       <span>% Victorias</span>
                     </p>
-                    <p className="text-lg font-black text-white mt-1">{club.globalWinRate}%</p>
+                    <p className="text-lg font-black text-white mt-1">{formatWinRate(clubRecord(data.seasons, club.id).winRate)}</p>
                   </div>
 
                   <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800/50">

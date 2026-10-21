@@ -52,7 +52,7 @@ export const YouthAcademyTab = () => {
           <div className="col-span-full bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-500 text-xs space-y-2">
             <GraduationCap className="w-8 h-8 text-slate-600 mx-auto" />
             <p className="font-bold text-slate-300">No hay canteranos reclutados aún en esta temporada.</p>
-            <p>Pulsa en **Reclutar Canterano** para dictar por voz o añadir una joven promesa con su edad y subida de media.</p>
+            <p>Pulsa en <strong className="font-bold text-slate-200">Reclutar Canterano</strong> para dictar por voz o añadir una joven promesa con su edad y subida de media.</p>
           </div>
         ) : (
           currentYouth.map((youth) => {
