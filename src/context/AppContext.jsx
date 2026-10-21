@@ -4,15 +4,9 @@ import { INITIAL_DATA } from '../mockData';
 import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService';
 import { generateNewsFromMatchResultAsync } from '../utils/pressAIEngine';
 import { buildInjuryObject, findRecoveredPlayersForDate, parseDurationDaysFromString, formatToISODate } from '../utils/injuryHelper';
+import { careerScore, normalizeCareer } from '../utils/backupService';
 
 const AppContext = createContext();
-
-// Amount of real content in a career, used to never replace richer data with an emptier copy
-const COUNTED_KEYS = ['clubs', 'seasons', 'players', 'matches', 'transfers', 'youthAcademy', 'shortlist', 'pressConferences', 'newsArticles'];
-const careerScore = (career) =>
-  career && typeof career === 'object'
-    ? COUNTED_KEYS.reduce((sum, k) => sum + (Array.isArray(career[k]) ? career[k].length : 0), 0)
-    : 0;
 
 const DEFAULT_SEASON_NARRATIVE = "Llegamos con la máxima ilusión. El objetivo es competir en cada jornada, consolidar la solidez táctica del equipo y cumplir las expectativas de la directiva y de la afición.";
 
@@ -71,7 +65,7 @@ export const AppProvider = ({ children }) => {
             narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
           }));
         }
-        return parsed;
+        return normalizeCareer(parsed);
       } catch (e) {
         console.error("Error loading saved data:", e);
       }
@@ -120,7 +114,7 @@ export const AppProvider = ({ children }) => {
               narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
             }));
           }
-          setData(cloudData);
+          setData(normalizeCareer(cloudData));
           localStorage.setItem(userStorageKey, JSON.stringify(cloudData));
           loadedFromCloud = true;
           setSyncStatus('synced');
@@ -142,7 +136,7 @@ export const AppProvider = ({ children }) => {
                 narrativeContext: s.narrativeContext || DEFAULT_SEASON_NARRATIVE
               }));
             }
-            setData(parsed);
+            setData(normalizeCareer(parsed));
             setSyncStatus('synced');
           } catch (e) {}
         } else {
@@ -276,6 +270,30 @@ export const AppProvider = ({ children }) => {
       return false;
     }
   }, [currentUser, data]);
+
+  // Restore a career from a backup file: replaces the current data on this device
+  // and uploads exactly that copy (forced, so it wins over whatever the server has)
+  const importCareerData = useCallback(async (career) => {
+    const restored = normalizeCareer(career);
+    loadedKeyRef.current = userStorageKey;
+    localStorage.setItem(userStorageKey, JSON.stringify(restored));
+    setData(restored);
+    if (!currentUser?.email) return false;
+    setSyncStatus('syncing');
+    try {
+      const success = await saveUserCloudData(
+        currentUser.email,
+        { userProfile: currentUser, careerData: restored },
+        { force: true }
+      );
+      setSyncStatus(success ? 'synced' : 'offline');
+      if (success) setLastSyncedAt(Date.now());
+      return success;
+    } catch (err) {
+      setSyncStatus('error');
+      return false;
+    }
+  }, [currentUser, userStorageKey]);
 
   const [activeClubId, setActiveClubId] = useState(null);
   const [activeSeasonId, setActiveSeasonId] = useState(null);
@@ -1521,6 +1539,7 @@ export const AppProvider = ({ children }) => {
       syncStatus,
       lastSyncedAt,
       forceSyncCloud,
+      importCareerData,
       activeClubId,
       activeSeasonId,
       activeClub,

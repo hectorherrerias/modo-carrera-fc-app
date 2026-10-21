@@ -2,24 +2,22 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Shield, Calendar, RefreshCw, ArrowLeft, Palette, User, Key, Cloud, Sparkles } from 'lucide-react';
+import { Trophy, Shield, Calendar, ShieldCheck, ArrowLeft, Palette, User, Key, Cloud, Sparkles } from 'lucide-react';
 import { ClubLogo } from './ClubLogo';
 import { AuthModal } from './Modals/AuthModal';
+import { BackupModal } from './Modals/BackupModal';
+import { isDemoCareer } from '../utils/backupService';
 
 export const Navbar = ({ currentView, setView }) => {
-  const { activeClub, activeSeason, resetToDefaultData, syncStatus, forceSyncCloud } = useApp();
+  const { data, activeClub, activeSeason, syncStatus, forceSyncCloud } = useApp();
   const { currentTheme, changeTheme, themes } = useTheme();
   const { currentUser } = useAuth();
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const showDemoBanner = currentUser && isDemoCareer(data);
 
-  const handleReset = () => {
-    if (window.confirm("¿Seguro que deseas reiniciar los datos a la configuración inicial por defecto?")) {
-      resetToDefaultData();
-      setView('home');
-    }
-  };
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-xl">
@@ -41,7 +39,7 @@ export const Navbar = ({ currentView, setView }) => {
         </div>
 
         {/* Navigation Breadcrumbs & Active Club Indicator */}
-        <div className="hidden md:flex items-center space-x-3 bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-800">
+        <div className="hidden xl:flex items-center space-x-3 bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-800">
           <button 
             onClick={() => setView('home')}
             className={`flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
@@ -87,7 +85,7 @@ export const Navbar = ({ currentView, setView }) => {
         </div>
 
         {/* Right Actions: Cloud Sync Status, Theme, User Auth Profile & Controls */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           
           {/* Cloud Sync Status Indicator */}
           {currentUser && (
@@ -170,15 +168,36 @@ export const Navbar = ({ currentView, setView }) => {
           )}
 
           <button
-            onClick={handleReset}
-            title="Reiniciar datos de prueba"
-            className="flex items-center space-x-1 text-xs text-slate-400 hover:text-rose-400 px-2.5 py-1.5 rounded-xl border border-slate-800 hover:border-rose-900/50 bg-slate-900/60 transition-all"
+            onClick={() => setIsBackupOpen(true)}
+            title="Copias de seguridad: descargar o restaurar tu carrera"
+            className="flex items-center space-x-1 text-xs text-slate-300 hover:text-white px-2.5 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/60 transition-all"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden lg:inline">Copias</span>
           </button>
         </div>
 
       </div>
+
+      {showDemoBanner && (
+        <div className="bg-amber-500/10 border-t border-amber-500/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="text-amber-300">Estás viendo los datos de ejemplo. ¿Tienes una copia de tu carrera?</span>
+            <button
+              onClick={() => setIsBackupOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black"
+            >
+              Restaurar copia
+            </button>
+          </div>
+        </div>
+      )}
+
+      <BackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        onAfterReset={() => setView('home')}
+      />
 
       <AuthModal
         isOpen={isAuthModalOpen}

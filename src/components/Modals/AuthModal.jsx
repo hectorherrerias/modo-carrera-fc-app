@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { validateGeminiApiKey } from '../../utils/geminiService';
 import { exportDataToJson } from '../../utils/cloudSyncService';
+import { readBackupFile } from '../../utils/backupService';
 import { 
   UserCheck, X, LogIn, UserPlus, Key, Mail, Lock, Sparkles, 
   Check, Cloud, RefreshCw, Download, Upload, ShieldCheck, AlertCircle, Loader2, LogOut 
@@ -11,7 +12,7 @@ import {
 
 export const AuthModal = ({ isOpen, onClose }) => {
   const { currentUser, loginUser, registerUser, logoutUser, updateGeminiApiKey } = useAuth();
-  const { data, setData, syncStatus, lastSyncedAt, forceSyncCloud } = useApp();
+  const { data, setData, syncStatus, lastSyncedAt, forceSyncCloud, importCareerData } = useApp();
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
@@ -87,26 +88,19 @@ export const AuthModal = ({ isOpen, onClose }) => {
     setSuccessMsg("Copia de seguridad descargada en tu dispositivo.");
   };
 
-  const handleImportBackup = (e) => {
+  const handleImportBackup = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const imported = JSON.parse(event.target.result);
-        if (imported.clubs && imported.seasons) {
-          setData(imported);
-          forceSyncCloud();
-          setSuccessMsg("¡Copia de seguridad restaurada y sincronizada!");
-        } else {
-          setErrorMsg("El archivo JSON no tiene la estructura de Modo Carrera.");
-        }
-      } catch (err) {
-        setErrorMsg("Error al leer el archivo JSON.");
-      }
-    };
-    reader.readAsText(file);
+    try {
+      const career = await readBackupFile(file);
+      if (!window.confirm("¿Reemplazar tu carrera actual por esta copia? Lo que tienes ahora queda guardado en el historial del servidor.")) return;
+      const uploaded = await importCareerData(career);
+      if (uploaded) setSuccessMsg("¡Copia de seguridad restaurada y guardada en el servidor!");
+      else setErrorMsg("Copia restaurada en este dispositivo, pero no se pudo guardar en el servidor.");
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
   };
 
   const handleLogout = () => {
@@ -296,7 +290,6 @@ export const AuthModal = ({ isOpen, onClose }) => {
                     <span>Restaurar JSON</span>
                     <input
                       type="file"
-                      accept=".json"
                       onChange={handleImportBackup}
                       className="hidden"
                     />

@@ -61,11 +61,13 @@ export const fetchUserCloudData = async (email) => {
 /**
  * Save user data to Vercel Serverless / Cloud DB by user email
  */
-export const saveUserCloudData = async (email, { userProfile, careerData }) => {
+export const saveUserCloudData = async (email, { userProfile, careerData }, { force = false } = {}) => {
   const cleanEmail = sanitizeEmail(email);
   if (!cleanEmail) return false;
 
   const key = emailToKey(cleanEmail);
+  // force=1 lets a deliberate restore replace the stored copy even if it is smaller
+  const forceQs = force ? 'force=1' : '';
 
   const payload = {
     userId: userProfile?.id || `user_${cleanEmail}`,
@@ -80,9 +82,9 @@ export const saveUserCloudData = async (email, { userProfile, careerData }) => {
   let saved = false;
 
   const endpoints = [
-    `/api/cloud-db?email=${encodeURIComponent(cleanEmail)}`,
-    `/api/cloud-db/users/${key}.json`,
-    `/api/sync?email=${encodeURIComponent(cleanEmail)}`
+    `/api/cloud-db?email=${encodeURIComponent(cleanEmail)}${forceQs ? '&' + forceQs : ''}`,
+    `/api/cloud-db/users/${key}.json${forceQs ? '?' + forceQs : ''}`,
+    `/api/sync?email=${encodeURIComponent(cleanEmail)}${forceQs ? '&' + forceQs : ''}`
   ];
 
   for (const endpoint of endpoints) {

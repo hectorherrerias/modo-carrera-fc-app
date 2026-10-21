@@ -27,6 +27,28 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      // Si la app no llega a pintarse (error al arrancar), mostrar un aviso útil
+      // en lugar de una pantalla vacía
+      (function () {
+        var shown = false;
+        function show(msg) {
+          var root = document.getElementById("root");
+          if (shown || !root || root.children.length) return;
+          shown = true;
+          root.innerHTML =
+            "<div style=\"min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;color:#e2e8f0\">" +
+            "<div style=\"max-width:420px;background:#0f172a;border:1px solid #334155;border-radius:20px;padding:28px;text-align:center\">" +
+            "<div style=\"font-size:32px\">⚠️</div><h2 style=\"margin:12px 0 8px\">La app no ha podido arrancar</h2>" +
+            "<p style=\"color:#94a3b8;font-size:14px\">Tus datos no se han tocado." + (msg ? "<br><small style=\"color:#64748b\">" + String(msg).replace(/</g, "&lt;") + "</small>" : "") + "</p>" +
+            "<p><button onclick=\"location.reload()\" style=\"margin:6px;padding:10px 16px;border:0;border-radius:10px;background:#10b981;color:#052e16;font-weight:700\">Recargar</button>" +
+            "<a href=\"/rescate.html\" style=\"display:inline-block;margin:6px;padding:10px 16px;border-radius:10px;background:#334155;color:#e2e8f0;font-weight:700;text-decoration:none\">Rescate de datos</a></p>" +
+            "</div></div>";
+        }
+        window.addEventListener("error", function (e) { setTimeout(function () { show(e.message); }, 300); });
+        window.addEventListener("load", function () { setTimeout(function () { show(""); }, 6000); });
+      })();
+    </script>
   </head>
   <body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
     <div id="root"></div>
