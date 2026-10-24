@@ -7,6 +7,7 @@ import {
   SEASON_NARRATIVE_PRESETS 
 } from '../../utils/pressAIEngine';
 import { generateGeminiSeasonNarrative } from '../../utils/geminiService';
+import { aiKeyFor, aiLabel, useLocalAI } from '../../utils/localAI';
 import { 
   Mic, MicOff, Send, Sparkles, CheckCircle2, History, Bot, 
   RefreshCw, Newspaper, Key, Bookmark, Check, HelpCircle, Flame, Trophy, ShieldAlert 
@@ -14,6 +15,7 @@ import {
 import { AuthModal } from '../Modals/AuthModal';
 
 export const PressConferenceTab = () => {
+  useLocalAI(); // repinta cuando se sabe si la IA local está disponible
   const { 
     activeClub, 
     activeSeason, 
@@ -78,8 +80,8 @@ export const PressConferenceTab = () => {
   const handleGenerateAINarrative = async () => {
     setIsGeneratingNarrative(true);
     try {
-      if (currentUser?.geminiApiKey) {
-        const aiDraft = await generateGeminiSeasonNarrative(currentUser.geminiApiKey, {
+      if (aiKeyFor(currentUser)) {
+        const aiDraft = await generateGeminiSeasonNarrative(aiKeyFor(currentUser), {
           clubName: activeClub.name,
           managerName: activeClub.managerName,
           year: activeSeason.year,
@@ -168,7 +170,7 @@ export const PressConferenceTab = () => {
     setIsGeneratingQuestions(true);
 
     const result = await generatePressQuestionsAsync({
-      apiKey: currentUser?.geminiApiKey,
+      apiKey: aiKeyFor(currentUser),
       clubName: activeClub.name,
       managerName: activeClub.managerName,
       seasonContext: seasonNarrativeInput || activeSeason.narrativeContext,
@@ -244,7 +246,7 @@ export const PressConferenceTab = () => {
 
     // AUTO-GENERATE REALISTIC NEWSPAPER FRONT PAGES VIA GEMINI OR HEURISTIC
     const generatedArticles = await generateNewsFromPressConferenceAsync({
-      apiKey: currentUser?.geminiApiKey,
+      apiKey: aiKeyFor(currentUser),
       clubName: activeClub.name,
       managerName: activeClub.managerName,
       seasonContext: seasonNarrativeInput || activeSeason.narrativeContext,
@@ -282,10 +284,10 @@ export const PressConferenceTab = () => {
                 Sala de Prensa Oficial
               </span>
 
-              {currentUser?.geminiApiKey ? (
+              {aiKeyFor(currentUser) ? (
                 <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950 border border-emerald-500/30 px-2 py-0.5 rounded flex items-center space-x-1">
                   <Sparkles className="w-3 h-3 text-emerald-400" />
-                  <span>Gemini IA Activa</span>
+                  <span>{aiLabel(currentUser)} activa</span>
                 </span>
               ) : (
                 <button
@@ -476,7 +478,7 @@ export const PressConferenceTab = () => {
               <div className="flex items-center space-x-2 text-[11px] text-slate-400">
                 <Bot className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
-                  {currentUser?.geminiApiKey 
+                  {aiKeyFor(currentUser) 
                     ? "✨ La IA combinará el Contexto de la Temporada + Esta Previa para formular preguntas reales."
                     : "⚡ Modo rápido activo. Para máxima personalización con Gemini IA conecta tu API Key."}
                 </span>

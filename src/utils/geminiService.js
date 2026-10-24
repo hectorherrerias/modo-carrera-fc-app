@@ -4,6 +4,8 @@
  * Command parsing, and API key validation.
  */
 
+import { LOCAL_AI_KEY, callLocalAI } from './localAI';
+
 /**
  * Validate if a Gemini API key is valid by sending a test generation request
  */
@@ -42,6 +44,10 @@ export const validateGeminiApiKey = async (apiKey) => {
  * Generic Gemini API Call with system instruction and JSON/text handling
  */
 export const callGeminiLiveAPI = async (apiKey, promptText, systemInstruction = "", options = {}) => {
+  // Sin clave de Gemini: la IA local del mini PC (Ollama) a través del servidor de la app
+  if (apiKey === LOCAL_AI_KEY) {
+    return callLocalAI(promptText, systemInstruction, options);
+  }
   if (!apiKey || !apiKey.trim()) {
     throw new Error("No se ha configurado la API Key de Google Gemini.");
   }
@@ -193,7 +199,7 @@ ${qaFormatted}
 Genera las 3 portadas en JSON.`;
 
   try {
-    const rawText = await callGeminiLiveAPI(apiKey, userPrompt, systemPrompt, { temperature: 0.8 });
+    const rawText = await callGeminiLiveAPI(apiKey, userPrompt, systemPrompt, { temperature: 0.8, maxOutputTokens: 700 });
     const cleaned = rawText.replace(/```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
     if (Array.isArray(parsed) && parsed.length >= 3) {
@@ -291,7 +297,7 @@ Notas del partido: ${match.notes || 'Sin notas adicionales'}
 Genera las 3 portadas/noticias del partido en formato JSON.`;
 
   try {
-    const rawText = await callGeminiLiveAPI(apiKey, userPrompt, systemPrompt, { temperature: 0.8 });
+    const rawText = await callGeminiLiveAPI(apiKey, userPrompt, systemPrompt, { temperature: 0.8, maxOutputTokens: 700 });
     const cleaned = rawText.replace(/```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
     if (Array.isArray(parsed) && parsed.length >= 3) {

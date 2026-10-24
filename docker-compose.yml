@@ -10,6 +10,12 @@ services:
       - "${HOST_PORT:-3002}:80"
     environment:
       - NODE_ENV=production
+      # IA local para ruedas de prensa, noticias y asistente (sin clave de Gemini)
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+    networks:
+      - default
+      - ia
     volumes:
       # Datos de carrera sincronizados entre dispositivos (un JSON por usuario)
       - ./data:/app/data
@@ -18,3 +24,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  # Red del stack de IA (Ollama); si no existe, quita "ia" de networks del servicio
+  ia:
+    name: jarvis-stack_default
+    external: true

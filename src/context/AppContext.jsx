@@ -5,6 +5,7 @@ import { fetchUserCloudData, saveUserCloudData } from '../utils/cloudSyncService
 import { generateNewsFromMatchResultAsync } from '../utils/pressAIEngine';
 import { buildInjuryObject, findRecoveredPlayersForDate, parseDurationDaysFromString, formatToISODate } from '../utils/injuryHelper';
 import { careerScore, normalizeCareer } from '../utils/backupService';
+import { aiKeyFor } from '../utils/localAI';
 
 const AppContext = createContext();
 
@@ -860,7 +861,7 @@ export const AppProvider = ({ children }) => {
 
     // Auto-generate press news for this match
     generateNewsFromMatchResultAsync({
-      apiKey: currentUser?.geminiApiKey,
+      apiKey: aiKeyFor(currentUser),
       match: newMatch,
       clubName: activeClub?.name || 'Club',
       managerName: activeClub?.managerName || 'Mánager',
@@ -1109,7 +1110,7 @@ export const AppProvider = ({ children }) => {
     // Re-generate press news for updated match
     if (updatedMatchObj) {
       generateNewsFromMatchResultAsync({
-        apiKey: currentUser?.geminiApiKey,
+        apiKey: aiKeyFor(currentUser),
         match: updatedMatchObj,
         clubName: activeClub?.name || 'Club',
         managerName: activeClub?.managerName || 'Mánager',

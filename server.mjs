@@ -255,6 +255,66 @@ const handleDeviceBackup = async (req, res) => {
 };
 
 // ---------------------------------------------------------------------------
+// Local AI (Ollama on the mini PC): press conferences, news and the assistant work
+// without a Gemini key. One generation at a time so the CPU is not overloaded.
+// ---------------------------------------------------------------------------
+const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/$/, '');
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+let aiBusy = false;
+
+const handleAiStatus = async (req, res) => {
+  try {
+    const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(4000) });
+    const tags = r.ok ? await r.json() : { models: [] };
+    const available = (tags.models || []).some((m) => m.name === OLLAMA_MODEL || m.name.startsWith(`${OLLAMA_MODEL}:`));
+    return send(req, res, 200, { available, model: OLLAMA_MODEL }, { 'Cache-Control': 'no-store' });
+  } catch {
+    return send(req, res, 200, { available: false, model: OLLAMA_MODEL }, { 'Cache-Control': 'no-store' });
+  }
+};
+
+const handleAi = async (req, res) => {
+  if (req.method !== 'POST') return send(req, res, 405, { error: 'Method not allowed' });
+  if (aiBusy) return send(req, res, 429, { error: 'La IA local está ocupada con otra petición. Prueba en unos segundos.' });
+  let input;
+  try {
+    input = JSON.parse(await readBody(req));
+  } catch {
+    return send(req, res, 400, { error: 'Invalid JSON' });
+  }
+  const prompt = String(input.prompt || '').slice(0, 12000);
+  if (!prompt) return send(req, res, 400, { error: 'Falta el texto' });
+  aiBusy = true;
+  const started = Date.now();
+  try {
+    const r = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(300000),
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        prompt,
+        system: String(input.system || '').slice(0, 8000) || undefined,
+        stream: false,
+        keep_alive: '30m',
+        options: {
+          temperature: Math.min(Math.max(Number(input.temperature) || 0.7, 0), 1.5),
+          num_predict: Math.min(Math.max(Number(input.maxTokens) || 600, 32), 900),
+        },
+      }),
+    });
+    if (!r.ok) return send(req, res, 502, { error: `La IA local respondió ${r.status}` });
+    const data = await r.json();
+    log('AI', `${Math.round((Date.now() - started) / 1000)}s`, `${(data.response || '').length} chars`);
+    return send(req, res, 200, { text: data.response || '' }, { 'Cache-Control': 'no-store' });
+  } catch (err) {
+    return send(req, res, 502, { error: `No se pudo usar la IA local: ${err.message}` });
+  } finally {
+    aiBusy = false;
+  }
+};
+
+// ---------------------------------------------------------------------------
 // Static files + SPA fallback
 // ---------------------------------------------------------------------------
 const serveStatic = async (req, res, url) => {
@@ -293,6 +353,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/healthz') return send(req, res, 200, { status: 'ok' });
     if (url.pathname === '/api/device-backup') return await handleDeviceBackup(req, res);
+    if (url.pathname === '/api/ai/status') return await handleAiStatus(req, res);
+    if (url.pathname === '/api/ai') return await handleAi(req, res);
     if (url.pathname === '/api/cloud-db/history') return await handleHistory(req, res, url);
     if (url.pathname.startsWith('/api/cloud-db') || url.pathname.startsWith('/api/sync')) {
       const result = await handleApi(req, res, url);

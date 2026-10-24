@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { MEDIA_OUTLETS, generateNewsFromMatchResultAsync } from '../../utils/pressAIEngine';
+import { aiKeyFor } from '../../utils/localAI';
 import { Newspaper, Sparkles, Star, Bookmark, Trash2, Bot, Trophy, RefreshCw, Flame } from 'lucide-react';
 
 export const PressNewsTab = () => {
@@ -25,7 +26,7 @@ export const PressNewsTab = () => {
 
     try {
       const newArticles = await generateNewsFromMatchResultAsync({
-        apiKey: currentUser?.geminiApiKey,
+        apiKey: aiKeyFor(currentUser),
         match: latestMatch,
         clubName: activeClub.name,
         managerName: activeClub.managerName,

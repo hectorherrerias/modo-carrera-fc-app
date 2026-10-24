@@ -3,10 +3,12 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { processAICommand } from '../utils/aiCommandProcessor';
 import { callGeminiLiveAPI } from '../utils/geminiService';
+import { aiKeyFor, aiLabel, useLocalAI } from '../utils/localAI';
 import { Sparkles, Mic, Send, X, Bot, CheckCircle2, AlertCircle, Key } from 'lucide-react';
 import { AuthModal } from './Modals/AuthModal';
 
 export const AIAssistantModal = () => {
+  useLocalAI(); // repinta cuando se sabe si la IA local está disponible
   const context = useApp();
   const { activeClub, activeSeason, currentPlayers, clubTotalWins, clubTotalDraws, clubTotalLosses, computedWinRate } = context;
   const { currentUser } = useAuth();
@@ -28,17 +30,18 @@ export const AIAssistantModal = () => {
     setFeedback(result);
 
     // 2. If Gemini API Key connected, call live Gemini model with full rich team context
-    if (currentUser?.geminiApiKey) {
+    if (aiKeyFor(currentUser)) {
       setIsAiLoading(true);
       try {
         const teamSummary = `Club: ${activeClub?.name || 'Club'} | Mánager: ${activeClub?.managerName || 'Mánager'} | Estadio: ${activeClub?.stadium || 'Estadio'} | Temporada: ${activeSeason?.year || '2024/25'} | Balance: ${clubTotalWins}V - ${clubTotalDraws}E - ${clubTotalLosses}D (% Victorias: ${computedWinRate}%) | Contexto Temporada: ${activeSeason?.narrativeContext || 'En curso'} | Jugadores Clave: ${(currentPlayers || []).slice(0, 5).map(p => p.name).join(', ')}`;
         
         const systemPrompt = `Eres el Director Deportivo y Asistente Técnico jefe en EA FC para el club.
 Contexto actual del club: ${teamSummary}.
-Responde en español de forma concisa, profesional y entusiasta, aconsejando tácticamente o valorando la orden ejecutada.`;
+Responde en español de forma concisa, profesional y entusiasta, aconsejando tácticamente o valorando la orden ejecutada.
+Responde en un máximo de 3 frases.`;
 
         const liveReply = await callGeminiLiveAPI(
-          currentUser.geminiApiKey,
+          aiKeyFor(currentUser),
           cleanText,
           systemPrompt
         );
@@ -101,7 +104,7 @@ Responde en español de forma concisa, profesional y entusiasta, aconsejando tá
       >
         <Sparkles className="w-4 h-4 text-slate-950" />
         <span>ASISTENTE IA</span>
-        {currentUser?.geminiApiKey && <Key className="w-3 h-3 text-slate-950 fill-slate-950" />}
+        {aiKeyFor(currentUser) && <Key className="w-3 h-3 text-slate-950 fill-slate-950" />}
       </button>
 
       {/* AI Assistant Modal */}
@@ -118,9 +121,9 @@ Responde en español de forma concisa, profesional y entusiasta, aconsejando tá
                 <div>
                   <div className="flex items-center space-x-1.5">
                     <h3 className="font-extrabold text-sm sm:text-base text-white">Director Deportivo & Asistente IA</h3>
-                    {currentUser?.geminiApiKey ? (
+                    {aiKeyFor(currentUser) ? (
                       <span className="text-[9px] font-black text-amber-400 bg-amber-950 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                        Gemini Live ⚡
+                        {aiLabel(currentUser)} ⚡
                       </span>
                     ) : (
                       <button
@@ -163,9 +166,21 @@ Responde en español de forma concisa, profesional y entusiasta, aconsejando tá
                 <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 rounded-2xl text-amber-200 text-xs space-y-1">
                   <span className="text-[10px] uppercase font-bold text-amber-400 block flex items-center space-x-1">
                     <Sparkles className="w-3 h-3 text-amber-400" />
-                    <span>Análisis del Director Deportivo (Gemini IA):</span>
+                    <span>Análisis del Director Deportivo ({aiLabel(currentUser) || 'IA'}):</span>
                   </span>
                   <p className="italic leading-relaxed">{geminiLiveResponse}</p>
+                </div>
+              )}
+
+              {/* The local AI on the mini PC is slower than Gemini: tell the user it is working */}
+              {isAiLoading && (
+                <div className="p-3 bg-slate-950 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs flex items-center space-x-2 animate-pulse">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {aiLabel(currentUser) === 'IA local'
+                      ? 'La IA local del mini PC está pensando… puede tardar hasta un minuto.'
+                      : 'Pensando…'}
+                  </span>
                 </div>
               )}
 

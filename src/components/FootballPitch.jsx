@@ -431,7 +431,9 @@ export const FootballPitch = ({
                     left: `${posX}%`,
                     bottom: `${posY}%`,
                     transform: 'translate(-50%, 50%)',
-                    touchAction: 'none'
+                    touchAction: 'none',
+                    // Deeper positions on top: the bench box under a midfielder no longer covers the goalkeeper
+                    zIndex: activeDraggingIdx === index ? 200 : Math.round(100 - posY)
                   }}
                   className="absolute flex flex-col items-center group transition-all duration-75 touch-none"
                 >
